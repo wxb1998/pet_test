@@ -8,6 +8,36 @@ import { getScenarioStage, calculateExpDistribution } from '../data/scenarios';
 
 const SAVE_KEY = 'sw_idle_save';
 
+// Generate a starter rune (pre-leveled to +6~+9)
+function makeStarterRune(
+  set: import('../types').RuneSet,
+  slot: RuneSlot,
+  mainType: RuneMainStat,
+  equippedTo: string,
+): Rune {
+  const stars: Rune['stars'] = 4;
+  const level = slot <= 3 ? 9 : 6; // odd slots +9, even slots +6
+  const baseValues: Record<string, number> = {
+    hp_flat: 800, atk_flat: 40, def_flat: 40,
+    hp_percent: 20, atk_percent: 20, def_percent: 20,
+    spd: 14, crit_rate: 16, crit_dmg: 24,
+    resistance: 16, accuracy: 16,
+  };
+  return {
+    id: generateId(),
+    set,
+    slot,
+    stars,
+    level,
+    mainStat: { type: mainType, value: baseValues[mainType] || 15 },
+    subStats: [
+      { type: 'hp_percent', value: 5 },
+      { type: 'spd', value: 4 },
+    ].filter(s => s.type !== mainType) as { type: RuneMainStat; value: number }[],
+    equippedTo,
+  };
+}
+
 // Initial game state
 function createInitialState(): GameState {
   // Give player some starter monsters
@@ -19,6 +49,69 @@ function createInitialState(): GameState {
     createMonsterInstance('belladeon_light', 25, 4),  // Belladeon
     createMonsterInstance('konamiya_water', 20, 3),   // Konamiya
   ];
+
+  // Give Fran a starter swift+energy rune set
+  const franId = starters[0].id;
+  const franRunes: Rune[] = [
+    makeStarterRune('swift', 1 as RuneSlot, 'atk_flat', franId),
+    makeStarterRune('swift', 2 as RuneSlot, 'spd', franId),
+    makeStarterRune('swift', 3 as RuneSlot, 'def_flat', franId),
+    makeStarterRune('swift', 4 as RuneSlot, 'hp_percent', franId),
+    makeStarterRune('energy', 5 as RuneSlot, 'hp_flat', franId),
+    makeStarterRune('energy', 6 as RuneSlot, 'hp_percent', franId),
+  ];
+  for (const r of franRunes) {
+    starters[0].runes[r.slot] = r;
+  }
+  starters[0].computedStats = computeStats(starters[0]);
+
+  // Give Loren a starter focus+blade set
+  const lorenId = starters[1].id;
+  const lorenRunes: Rune[] = [
+    makeStarterRune('blade', 1 as RuneSlot, 'atk_flat', lorenId),
+    makeStarterRune('blade', 2 as RuneSlot, 'spd', lorenId),
+    makeStarterRune('blade', 3 as RuneSlot, 'def_flat', lorenId),
+    makeStarterRune('blade', 4 as RuneSlot, 'crit_rate', lorenId),
+    makeStarterRune('focus', 5 as RuneSlot, 'hp_flat', lorenId),
+    makeStarterRune('focus', 6 as RuneSlot, 'accuracy', lorenId),
+  ];
+  for (const r of lorenRunes) {
+    starters[1].runes[r.slot] = r;
+  }
+  starters[1].computedStats = computeStats(starters[1]);
+
+  // Give Belladeon a starter swift+energy set
+  const bellaId = starters[4].id;
+  const bellaRunes: Rune[] = [
+    makeStarterRune('swift', 1 as RuneSlot, 'atk_flat', bellaId),
+    makeStarterRune('swift', 2 as RuneSlot, 'spd', bellaId),
+    makeStarterRune('swift', 3 as RuneSlot, 'def_flat', bellaId),
+    makeStarterRune('swift', 4 as RuneSlot, 'hp_percent', bellaId),
+    makeStarterRune('energy', 5 as RuneSlot, 'hp_flat', bellaId),
+    makeStarterRune('energy', 6 as RuneSlot, 'hp_percent', bellaId),
+  ];
+  for (const r of bellaRunes) {
+    starters[4].runes[r.slot] = r;
+  }
+  starters[4].computedStats = computeStats(starters[4]);
+
+  // Also give some spare runes in inventory for Bernard/Shannon
+  const spareRunes: Rune[] = [
+    makeStarterRune('swift', 1 as RuneSlot, 'atk_flat', ''),
+    makeStarterRune('swift', 2 as RuneSlot, 'spd', ''),
+    makeStarterRune('energy', 3 as RuneSlot, 'def_flat', ''),
+    makeStarterRune('energy', 4 as RuneSlot, 'hp_percent', ''),
+    makeStarterRune('energy', 5 as RuneSlot, 'hp_flat', ''),
+    makeStarterRune('focus', 6 as RuneSlot, 'accuracy', ''),
+    makeStarterRune('fatal', 1 as RuneSlot, 'atk_flat', ''),
+    makeStarterRune('fatal', 2 as RuneSlot, 'atk_percent', ''),
+    makeStarterRune('fatal', 3 as RuneSlot, 'def_flat', ''),
+    makeStarterRune('fatal', 4 as RuneSlot, 'crit_dmg', ''),
+    makeStarterRune('blade', 5 as RuneSlot, 'hp_flat', ''),
+    makeStarterRune('blade', 6 as RuneSlot, 'atk_percent', ''),
+  ];
+  // Clean equippedTo for spare runes
+  for (const r of spareRunes) r.equippedTo = undefined;
 
   return {
     player: {
@@ -33,7 +126,7 @@ function createInitialState(): GameState {
       lastEnergyRefresh: Date.now(),
     },
     monsters: starters,
-    runes: [],
+    runes: spareRunes,
     inventory: {
       mysticalScrolls: 10,
       elementalScrolls: { fire: 3, water: 3, wind: 3 },
