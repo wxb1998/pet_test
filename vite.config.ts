@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 // Update 'summoners-war-idle' to your actual repo name
 export default defineConfig({
   plugins: [react()],
-  base: '/summoners-war-idle/',
+  base: '/pet_test/',
   build: {
     outDir: 'dist',
   },
