@@ -111,7 +111,7 @@ function createInitialState(): GameState {
 export type GameAction =
   | { type: 'SUMMON'; scrollType: 'mystical' | 'fire' | 'water' | 'wind' | 'legendary' }
   | { type: 'LEVEL_UP_MONSTER'; monsterId: string; amount: number }
-  | { type: 'STAR_UP_MONSTER'; monsterId: string }
+  | { type: 'STAR_UP_MONSTER'; monsterId: string; fodderIds: string[] }
   | { type: 'AWAKEN_MONSTER'; monsterId: string }
   | { type: 'EQUIP_RUNE'; monsterId: string; rune: Rune }
   | { type: 'UNEQUIP_RUNE'; monsterId: string; slot: RuneSlot }
@@ -231,20 +231,37 @@ export class GameStore {
 
       case 'STAR_UP_MONSTER': {
         const mon = s.monsters.find(m => m.id === action.monsterId);
-        if (mon && mon.stars < 6) {
-          mon.stars++;
-          mon.level = 1;
-          mon.computedStats = computeStats(mon);
-        }
+        if (!mon || mon.stars >= 6) break;
+        const maxLvl = mon.stars * 5 + 10;
+        // Must be max level
+        if (mon.level < maxLvl) break;
+        // Need N fodders where N = current stars, each fodder must be >= current stars
+        const requiredFodder = mon.stars;
+        const fodders = action.fodderIds
+          .map(fid => s.monsters.find(m => m.id === fid))
+          .filter((f): f is MonsterInstance => !!f && f.id !== mon.id && f.stars >= mon.stars);
+        if (fodders.length < requiredFodder) break;
+        // Consume fodder monsters
+        const fodderIdSet = new Set(fodders.slice(0, requiredFodder).map(f => f.id));
+        s.monsters = s.monsters.filter(m => !fodderIdSet.has(m.id));
+        // Evolve
+        mon.stars++;
+        mon.level = 1;
+        mon.computedStats = computeStats(mon);
         break;
       }
 
       case 'AWAKEN_MONSTER': {
         const mon = s.monsters.find(m => m.id === action.monsterId);
-        if (mon) {
-          mon.awakened = true;
-          mon.computedStats = computeStats(mon);
-        }
+        if (!mon || mon.awakened) break;
+        // Awakening costs mana based on natural stars
+        const awakenTemplate = MONSTER_TEMPLATES.find(t => t.id === mon.templateId);
+        const natStars = awakenTemplate?.naturalStars || 3;
+        const awakenCost = natStars <= 3 ? 10000 : natStars === 4 ? 50000 : 100000;
+        if (s.player.mana < awakenCost) break;
+        s.player.mana -= awakenCost;
+        mon.awakened = true;
+        mon.computedStats = computeStats(mon);
         break;
       }
 

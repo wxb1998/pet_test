@@ -9,6 +9,23 @@ const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
 };
 
+// Awakened star color per element
+const AWAKEN_STAR_COLORS: Record<Element, string> = {
+  fire: '#FF4444',
+  water: '#44AAFF',
+  wind: '#44DD44',
+  light: '#FFD700',
+  dark: '#CC66FF',
+};
+
+function StarDisplay({ mon }: { mon: MonsterInstance }) {
+  const template = getTemplate(mon.templateId);
+  const color = mon.awakened && template
+    ? AWAKEN_STAR_COLORS[template.element]
+    : 'var(--gold)';
+  return <span style={{ color }}>{starDisplay(mon.stars)}</span>;
+}
+
 export function MonsterPage() {
   const state = useGameState();
   const [selected, setSelected] = useState<string | null>(null);
@@ -74,8 +91,10 @@ export function MonsterPage() {
                   <MiniSprite family={template.family} element={template.element} size={36} />
                 </div>
                 <div className="name">{template.nameZh}</div>
-                <div className="stars">{starDisplay(mon.stars)}</div>
-                <div className="level">Lv.{mon.level}</div>
+                <div className="stars" style={{ fontSize: '7px' }}>
+                  <StarDisplay mon={mon} />
+                </div>
+                <div className="level">Lv.{mon.level}{mon.awakened ? ' ✦' : ''}</div>
               </div>
             );
           })}
@@ -91,20 +110,50 @@ export function MonsterPage() {
 }
 
 function MonsterDetail({ mon }: { mon: MonsterInstance }) {
+  const state = useGameState();
   const dispatch = useDispatch();
   const template = getTemplate(mon.templateId)!;
   const stats = mon.computedStats || computeStats(mon);
   const maxLevel = mon.stars * 5 + 10;
+  const [showEvolve, setShowEvolve] = useState(false);
+  const [selectedFodder, setSelectedFodder] = useState<string[]>([]);
+
+  const natStars = template.naturalStars;
+  const awakenCost = natStars <= 3 ? 10000 : natStars === 4 ? 50000 : 100000;
+  const canAwaken = !mon.awakened && state.player.mana >= awakenCost;
+  const isMaxLevel = mon.level >= maxLevel;
+  const requiredFodder = mon.stars;
+
+  // Available fodder: same or higher star, not the evolving monster
+  const availableFodder = state.monsters.filter(
+    m => m.id !== mon.id && m.stars >= mon.stars
+  );
+
+  const toggleFodder = (id: string) => {
+    setSelectedFodder(prev => {
+      if (prev.includes(id)) return prev.filter(f => f !== id);
+      if (prev.length >= requiredFodder) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const doEvolve = () => {
+    if (selectedFodder.length >= requiredFodder) {
+      dispatch({ type: 'STAR_UP_MONSTER', monsterId: mon.id, fodderIds: selectedFodder });
+      setShowEvolve(false);
+      setSelectedFodder([]);
+    }
+  };
 
   return (
     <div className="panel animate-fadeIn">
-      <div className="panel-title">{template.nameZh} 详细信息</div>
+      <div className="panel-title">{template.nameZh} {mon.awakened ? '(已觉醒)' : ''} 详细信息</div>
       <div className="monster-detail">
         <div className="sprite-area">
           <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
             <PixelSprite family={template.family} element={template.element} size={64} animation="idle" />
           </div>
-          <div style={{ color: 'var(--gold)', fontSize: '9px' }}>{starDisplay(mon.stars)}</div>
+          <div style={{ fontSize: '9px' }}><StarDisplay mon={mon} /></div>
           <div style={{ fontSize: '8px', marginTop: '4px' }}>Lv.{mon.level} / {maxLevel}</div>
           <div style={{ fontSize: '7px', color: 'var(--text-dim)', marginTop: '4px' }}>
             {ELEMENT_ICONS[template.element]} {ELEMENT_NAMES_ZH[template.element]}属性 | {template.familyZh}
@@ -119,20 +168,91 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
             </button>
             <button
               className="pixel-btn gold small"
-              disabled={mon.stars >= 6}
-              onClick={() => dispatch({ type: 'STAR_UP_MONSTER', monsterId: mon.id })}
+              disabled={mon.stars >= 6 || !isMaxLevel}
+              onClick={() => { setShowEvolve(!showEvolve); setSelectedFodder([]); }}
+              title={!isMaxLevel ? '需要满级才能进化' : ''}
             >
               进化★
             </button>
             {!mon.awakened && (
               <button
                 className="pixel-btn primary small"
+                disabled={!canAwaken}
                 onClick={() => dispatch({ type: 'AWAKEN_MONSTER', monsterId: mon.id })}
+                title={`觉醒需要 ${formatNumber(awakenCost)} 玛那`}
               >
-                觉醒
+                觉醒 ({formatNumber(awakenCost)})
               </button>
             )}
+            {mon.awakened && (
+              <span style={{ fontSize: '7px', color: AWAKEN_STAR_COLORS[template.element], alignSelf: 'center' }}>
+                ✦ 已觉醒
+              </span>
+            )}
           </div>
+
+          {/* Evolution conditions hint */}
+          {!showEvolve && mon.stars < 6 && (
+            <div style={{ fontSize: '6px', color: 'var(--text-dim)', marginTop: '6px', lineHeight: 1.4 }}>
+              进化条件: 满级(Lv.{maxLevel}) + {mon.stars}只{mon.stars}星素材
+            </div>
+          )}
+
+          {/* Evolution panel */}
+          {showEvolve && (
+            <div style={{ marginTop: '8px', padding: '6px', background: 'var(--bg-dark)', border: '2px solid var(--gold)' }}>
+              <div style={{ fontSize: '7px', color: 'var(--gold)', marginBottom: '4px' }}>
+                选择{requiredFodder}只 {mon.stars}★ 以上素材怪:
+                ({selectedFodder.length}/{requiredFodder})
+              </div>
+              {availableFodder.length === 0 ? (
+                <div style={{ fontSize: '7px', color: 'var(--error)', padding: '4px' }}>
+                  没有可用的 {mon.stars}★ 素材怪！
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '120px', overflowY: 'auto' }}>
+                  {availableFodder.map(fodder => {
+                    const ft = getTemplate(fodder.templateId);
+                    if (!ft) return null;
+                    const isSel = selectedFodder.includes(fodder.id);
+                    return (
+                      <div
+                        key={fodder.id}
+                        onClick={() => toggleFodder(fodder.id)}
+                        style={{
+                          padding: '3px',
+                          border: `2px solid ${isSel ? 'var(--gold)' : 'var(--border)'}`,
+                          background: isSel ? 'rgba(255,215,0,0.15)' : 'var(--bg-light)',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          width: '50px',
+                        }}
+                      >
+                        <MiniSprite family={ft.family} element={ft.element} size={20} />
+                        <div style={{ fontSize: '5px' }}>{ft.nameZh}</div>
+                        <div style={{ fontSize: '5px', color: 'var(--gold)' }}>{fodder.stars}★ Lv.{fodder.level}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                <button
+                  className="pixel-btn gold small"
+                  disabled={selectedFodder.length < requiredFodder}
+                  onClick={doEvolve}
+                >
+                  确认进化 → {mon.stars + 1}★
+                </button>
+                <button
+                  className="pixel-btn secondary small"
+                  onClick={() => { setShowEvolve(false); setSelectedFodder([]); }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Leader Skill */}
           {template.leaderSkill && (
