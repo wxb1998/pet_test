@@ -167,6 +167,7 @@ export interface BattleUnit {
   templateId: string;
   name: string;
   nameZh: string;
+  family: string;
   element: Element;
   isAlly: boolean;
   currentHp: number;

@@ -3,6 +3,7 @@ import { useGameState, useDispatch, useGameStore } from '../store/useGameStore';
 import { getTemplate, starDisplay } from '../utils/helpers';
 import type { DungeonType, Element } from '../types';
 import type { BattleSetup } from '../App';
+import { MiniSprite } from './PixelSprite';
 
 const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
@@ -170,7 +171,9 @@ export function DungeonPage({ onStartBattle }: Props) {
                 >
                   {template ? (
                     <>
-                      <div className="slot-sprite">{template.pixelArt}</div>
+                      <div className="slot-sprite" style={{ display: 'flex', justifyContent: 'center' }}>
+                        <MiniSprite family={template.family} element={template.element} size={28} />
+                      </div>
                       <div className="slot-name">{template.nameZh}</div>
                     </>
                   ) : (
@@ -197,7 +200,9 @@ export function DungeonPage({ onStartBattle }: Props) {
                   <div className={`element-badge element-${template.element}`}>
                     {ELEMENT_ICONS[template.element]}
                   </div>
-                  <div className="pixel-sprite">{template.pixelArt}</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
+                    <MiniSprite family={template.family} element={template.element} size={28} />
+                  </div>
                   <div className="name">{template.nameZh}</div>
                   <div className="stars" style={{ fontSize: '7px' }}>{starDisplay(mon.stars)}</div>
                   <div className="level">Lv.{mon.level}</div>

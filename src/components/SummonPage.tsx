@@ -3,6 +3,7 @@ import { useGameState, useDispatch } from '../store/useGameStore';
 import { getTemplate, starDisplay } from '../utils/helpers';
 import type { Element } from '../types';
 import { ELEMENT_NAMES_ZH } from '../types';
+import { PixelSprite } from './PixelSprite';
 
 const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
@@ -88,7 +89,6 @@ export function SummonPage() {
               disabled={state.player.crystals < 75}
               onClick={() => {
                 dispatch({ type: 'USE_CRYSTALS', amount: 75, purpose: 'scroll' });
-                // Add scroll manually via a workaround
               }}
             >
               🔮 75水晶 → 购买神秘卷轴
@@ -102,7 +102,9 @@ export function SummonPage() {
         <div className="panel">
           <div className="panel-title">最近召唤</div>
           <div className="summon-result">
-            <div style={{ fontSize: '48px', marginBottom: '8px' }}>{lastTemplate.pixelArt}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+              <PixelSprite family={lastTemplate.family} element={lastTemplate.element} size={64} animation="idle" />
+            </div>
             <div className={`star-${lastTemplate.naturalStars >= 5 ? '5' : lastTemplate.naturalStars >= 4 ? '4' : '3'}`}
               style={{ fontSize: '14px', marginBottom: '4px' }}>
               {lastTemplate.nameZh}

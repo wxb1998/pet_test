@@ -3,6 +3,7 @@ import { useGameState, useDispatch } from '../store/useGameStore';
 import { getTemplate, starDisplay, formatNumber, computeStats } from '../utils/helpers';
 import type { MonsterInstance, Element } from '../types';
 import { ELEMENT_NAMES_ZH } from '../types';
+import { PixelSprite, MiniSprite } from './PixelSprite';
 
 const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
@@ -69,7 +70,9 @@ export function MonsterPage() {
                 <div className={`element-badge element-${template.element}`}>
                   {ELEMENT_ICONS[template.element]}
                 </div>
-                <div className="pixel-sprite">{template.pixelArt}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
+                  <MiniSprite family={template.family} element={template.element} size={36} />
+                </div>
                 <div className="name">{template.nameZh}</div>
                 <div className="stars">{starDisplay(mon.stars)}</div>
                 <div className="level">Lv.{mon.level}</div>
@@ -98,7 +101,9 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
       <div className="panel-title">{template.nameZh} 详细信息</div>
       <div className="monster-detail">
         <div className="sprite-area">
-          <div className="big-sprite">{template.pixelArt}</div>
+          <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
+            <PixelSprite family={template.family} element={template.element} size={64} animation="idle" />
+          </div>
           <div style={{ color: 'var(--gold)', fontSize: '9px' }}>{starDisplay(mon.stars)}</div>
           <div style={{ fontSize: '8px', marginTop: '4px' }}>Lv.{mon.level} / {maxLevel}</div>
           <div style={{ fontSize: '7px', color: 'var(--text-dim)', marginTop: '4px' }}>

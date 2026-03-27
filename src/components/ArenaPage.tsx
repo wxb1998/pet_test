@@ -4,6 +4,7 @@ import { getTemplate, starDisplay } from '../utils/helpers';
 import type { Element } from '../types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import type { BattleSetup } from '../App';
+import { MiniSprite } from './PixelSprite';
 
 const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
@@ -91,7 +92,9 @@ export function ArenaPage({ onStartBattle }: Props) {
                   >
                     {template ? (
                       <>
-                        <div className="slot-sprite">{template.pixelArt}</div>
+                        <div className="slot-sprite" style={{ display: 'flex', justifyContent: 'center' }}>
+                          <MiniSprite family={template.family} element={template.element} size={28} />
+                        </div>
                         <div className="slot-name">{template.nameZh}</div>
                       </>
                     ) : (
@@ -117,7 +120,9 @@ export function ArenaPage({ onStartBattle }: Props) {
                     <div className={`element-badge element-${template.element}`}>
                       {ELEMENT_ICONS[template.element]}
                     </div>
-                    <div className="pixel-sprite">{template.pixelArt}</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
+                      <MiniSprite family={template.family} element={template.element} size={28} />
+                    </div>
                     <div className="name">{template.nameZh}</div>
                     <div className="stars" style={{ fontSize: '7px' }}>{starDisplay(mon.stars)}</div>
                     <div className="level">Lv.{mon.level}</div>
@@ -134,7 +139,9 @@ export function ArenaPage({ onStartBattle }: Props) {
           <div key={opp.id} className="arena-opponent">
             <div className="opp-team">
               {opp.team.map((t, i) => (
-                <span key={i} title={t.nameZh}>{t.pixelArt}</span>
+                <span key={i} title={t.nameZh} style={{ display: 'inline-flex' }}>
+                  <MiniSprite family={t.family} element={t.element} size={20} />
+                </span>
               ))}
             </div>
             <div className="opp-info">

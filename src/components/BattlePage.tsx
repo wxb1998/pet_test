@@ -4,6 +4,7 @@ import { BattleEngine, createBattleUnit, createEnemyUnit } from '../engine/Battl
 import type { BattleState, BattleUnit, DungeonType, Element } from '../types';
 import { getDungeonFloor } from '../data/dungeons';
 import type { BattleSetup } from '../App';
+import { MiniSprite } from './PixelSprite';
 
 const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
@@ -190,8 +191,8 @@ function UnitDisplay({ unit, isActive }: { unit: BattleUnit; isActive: boolean }
 
   return (
     <div className={`battle-unit ${isActive ? 'acting' : ''} ${!unit.alive ? 'dead' : ''}`}>
-      <div className="sprite">
-        {unit.pixelArt}
+      <div className="sprite" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <MiniSprite family={unit.family} element={unit.element} size={28} />
       </div>
       <div className="info">
         <div className="unit-name">
