@@ -192,7 +192,7 @@ export function getScenarioStage(regionId: string, stage: number, difficulty: Di
 
   const expReward = Math.floor(baseExp * (1 + (stage - 1) * 0.15) * config.expMult);
   const manaReward = Math.floor(baseMana * (1 + (stage - 1) * 0.1) * config.manaMult);
-  const runeChance = Math.min(0.8, 0.15 + stage * 0.05) * config.runeMult;
+  const runeChance = Math.min(0.4, 0.05 + stage * 0.02) * config.runeMult;
   const maxRuneStars = Math.min(6, Math.floor(baseLevel / 8) + 1 + config.runeStarsAdd);
 
   const diffZh: Record<Difficulty, string> = { normal: '普通', hard: '困难', hell: '地狱' };
