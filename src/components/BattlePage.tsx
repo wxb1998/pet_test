@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameState, useDispatch, useGameStore } from '../store/useGameStore';
 import { BattleEngine, createBattleUnit, createEnemyUnit } from '../engine/BattleEngine';
 import type { BattleState, BattleUnit, DungeonType, Element } from '../types';
-import { getTemplate } from '../utils/helpers';
 import { getDungeonFloor } from '../data/dungeons';
 import type { BattleSetup } from '../App';
 

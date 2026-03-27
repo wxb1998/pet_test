@@ -10,7 +10,6 @@ const ELEMENT_ICONS: Record<Element, string> = {
 
 export function MonsterPage() {
   const state = useGameState();
-  const dispatch = useDispatch();
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<Element | 'all'>('all');
   const [sortBy, setSortBy] = useState<'stars' | 'level' | 'element'>('stars');
@@ -159,7 +158,7 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
           <div>
             <div style={{ fontSize: '8px', color: 'var(--accent2)', marginBottom: '6px' }}>技能</div>
             <div className="skill-list">
-              {template.skills.map((skill, i) => (
+              {template.skills.map((skill) => (
                 <div key={skill.id} className="skill-card">
                   <div className="skill-header">
                     <span className="skill-name">

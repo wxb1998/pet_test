@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useGameState, useDispatch } from '../store/useGameStore';
+import { useGameState } from '../store/useGameStore';
 import { getTemplate, starDisplay } from '../utils/helpers';
 import type { Element } from '../types';
-import { ELEMENT_NAMES_ZH } from '../types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import type { BattleSetup } from '../App';
 
@@ -44,7 +43,6 @@ interface Props {
 
 export function ArenaPage({ onStartBattle }: Props) {
   const state = useGameState();
-  const dispatch = useDispatch();
   const [opponents] = useState(() => generateOpponents());
   const [team, setTeam] = useState<string[]>([]);
   const [showTeamSelect, setShowTeamSelect] = useState(false);

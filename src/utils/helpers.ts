@@ -13,7 +13,7 @@ export function getTemplate(templateId: string): MonsterTemplate | undefined {
 }
 
 // Calculate level multiplier for stats
-export function getLevelMultiplier(level: number, maxLevel: number = 40): number {
+export function getLevelMultiplier(level: number, _maxLevel: number = 40): number {
   return 1 + (level - 1) * 0.05;
 }
 

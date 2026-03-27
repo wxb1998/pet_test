@@ -1,33 +1,23 @@
 import { useState } from 'react';
 import { useGameState, useDispatch } from '../store/useGameStore';
 import { getTemplate, starDisplay } from '../utils/helpers';
-import type { MonsterInstance, Element } from '../types';
+import type { Element } from '../types';
 import { ELEMENT_NAMES_ZH } from '../types';
 
 const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
 };
 
-interface SummonResult {
-  monster: MonsterInstance;
-  stars: number;
-}
-
 export function SummonPage() {
   const state = useGameState();
   const dispatch = useDispatch();
-  const [result, setResult] = useState<SummonResult | null>(null);
   const [showLightning, setShowLightning] = useState(false);
 
-  const doSummon = (type: 'mystical' | 'fire' | 'water' | 'wind' | 'legendary') => {
+  const handleSummon = (type: 'mystical' | 'fire' | 'water' | 'wind' | 'legendary') => {
     const prevCount = state.monsters.length;
     dispatch({ type: 'SUMMON', scrollType: type });
 
-    // Check if a new monster was added
     setTimeout(() => {
-      const newState = state;
-      // The latest monster is the summoned one
-      // We need to re-read state after dispatch
       const newest = state.monsters[state.monsters.length - 1];
       if (newest && state.monsters.length > prevCount) {
         const template = getTemplate(newest.templateId);
@@ -35,15 +25,8 @@ export function SummonPage() {
           setShowLightning(true);
           setTimeout(() => setShowLightning(false), 1000);
         }
-        setResult({ monster: newest, stars: template?.naturalStars || 3 });
       }
     }, 50);
-  };
-
-  // Direct summon that works synchronously
-  const handleSummon = (type: 'mystical' | 'fire' | 'water' | 'wind' | 'legendary') => {
-    const prevLen = state.monsters.length;
-    dispatch({ type: 'SUMMON', scrollType: type });
   };
 
   // We use an effect-like approach: track monsters count

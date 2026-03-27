@@ -1,5 +1,5 @@
 import type {
-  BattleState, BattleUnit, BattleLogEntry, StatusEffect,
+  BattleState, BattleUnit,
   MonsterInstance, Skill, SkillEffect, Element,
   BuffType, DebuffType,
 } from '../types';
@@ -108,10 +108,6 @@ export class BattleEngine {
   // Get all living units
   private getAllUnits(): BattleUnit[] {
     return [...this.state.allies, ...this.state.enemies].filter(u => u.alive);
-  }
-
-  private getUnit(id: string): BattleUnit | undefined {
-    return this.getAllUnits().find(u => u.instanceId === id);
   }
 
   private addLog(actorId: string, actorName: string, action: string, targets: string[] = [], damage?: number, heal?: number, effects?: string[]) {
@@ -240,7 +236,7 @@ export class BattleEngine {
 
   private processDots(unit: BattleUnit) {
     const dots = unit.debuffs.filter(d => d.type === 'dot');
-    for (const dot of dots) {
+    for (const _dot of dots) {
       const damage = Math.floor(unit.maxHp * 0.05);
       unit.currentHp -= damage;
       this.addLog(unit.instanceId, unit.nameZh, '受到持续伤害', [], damage);
@@ -467,18 +463,14 @@ export class BattleEngine {
       damage *= elementBonus;
 
       // Critical hit check
-      let isCrit = false;
       let critRate = actor.stats.critRate;
       if (this.hasBuff(actor, 'crit_rate_buff')) critRate += 30;
       if (chance(critRate / 100)) {
-        isCrit = true;
         damage *= actor.stats.critDmg / 100;
       }
 
       // Glancing hit check
-      let isGlancing = false;
       if (this.hasDebuff(actor, 'glancing') || (elementBonus < 1 && chance(0.5))) {
-        isGlancing = true;
         damage *= 0.7;
       }
 
@@ -600,7 +592,7 @@ export class BattleEngine {
     for (let i = 0; i < count && target.buffs.length > 0; i++) {
       const removed = target.buffs.pop();
       if (removed) {
-        this.addLog(target.instanceId, target.nameZh, `${this.buffNameZh(removed.type)} 被移除`);
+        this.addLog(target.instanceId, target.nameZh, `${this.buffNameZh(removed.type as BuffType)} 被移除`);
       }
     }
   }
@@ -612,7 +604,7 @@ export class BattleEngine {
     this.addLog(target.instanceId, target.nameZh, '负面效果被净化');
   }
 
-  private reviveUnit(actor: BattleUnit, target: BattleUnit, hpPercent: number) {
+  private reviveUnit(actor: BattleUnit, _target: BattleUnit, hpPercent: number) {
     const deadAllies = actor.isAlly
       ? this.state.allies.filter(a => !a.alive)
       : this.state.enemies.filter(e => !e.alive);

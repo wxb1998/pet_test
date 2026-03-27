@@ -1,4 +1,4 @@
-import type { GameState, MonsterInstance, Rune, RuneSlot, DungeonType, Element } from '../types';
+import type { GameState, MonsterInstance, Rune, RuneSlot, RuneMainStat, DungeonType, Element } from '../types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { createMonsterInstance, computeStats, generateId, chance, randomInt } from '../utils/helpers';
 import { BattleEngine, createBattleUnit, createEnemyUnit } from '../engine/BattleEngine';
@@ -491,7 +491,7 @@ export class GameStore {
     };
   }
 
-  private getMainStatOptions(slot: RuneSlot): any[] {
+  private getMainStatOptions(slot: RuneSlot): RuneMainStat[] {
     switch (slot) {
       case 1: return ['atk_flat'];
       case 2: return ['atk_percent', 'hp_percent', 'def_percent', 'spd'];
@@ -503,7 +503,7 @@ export class GameStore {
     }
   }
 
-  private getSubStatOptions(): any[] {
+  private getSubStatOptions(): RuneMainStat[] {
     return ['hp_flat', 'hp_percent', 'atk_flat', 'atk_percent', 'def_flat', 'def_percent', 'spd', 'crit_rate', 'crit_dmg', 'resistance', 'accuracy'];
   }
 
@@ -570,7 +570,7 @@ export class GameStore {
       if (rune.subStats.length < 4) {
         // Add new sub stat
         const usedTypes = new Set([rune.mainStat.type, ...rune.subStats.map(s => s.type)]);
-        const options = this.getSubStatOptions().filter((t: string) => !usedTypes.has(t));
+        const options = this.getSubStatOptions().filter((t) => !usedTypes.has(t));
         if (options.length > 0) {
           const type = options[randomInt(0, options.length - 1)];
           rune.subStats.push({ type, value: this.getSubStatValue(type, rune.stars) });

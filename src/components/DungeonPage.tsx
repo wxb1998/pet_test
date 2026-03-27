@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameState, useDispatch, useGameStore } from '../store/useGameStore';
 import { getTemplate, starDisplay } from '../utils/helpers';
-import type { DungeonType, Element, MonsterInstance } from '../types';
+import type { DungeonType, Element } from '../types';
 import type { BattleSetup } from '../App';
 
 const ELEMENT_ICONS: Record<Element, string> = {
