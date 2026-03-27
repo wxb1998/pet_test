@@ -3,6 +3,8 @@ import { MONSTER_TEMPLATES } from '../data/monsters';
 import { createMonsterInstance, computeStats, generateId, chance, randomInt } from '../utils/helpers';
 import { BattleEngine, createBattleUnit, createEnemyUnit } from '../engine/BattleEngine';
 import { getDungeonFloor } from '../data/dungeons';
+import type { Difficulty } from '../data/scenarios';
+import { getScenarioStage, calculateExpDistribution } from '../data/scenarios';
 
 const SAVE_KEY = 'sw_idle_save';
 
@@ -40,6 +42,7 @@ function createInitialState(): GameState {
       angelmons: { fire: 0, water: 0, wind: 0, light: 0, dark: 0 },
     },
     dungeonProgress: {},
+    scenarioProgress: {},
     arenaDefense: [],
     idleProgress: {
       runsCompleted: 0,
@@ -76,6 +79,7 @@ export type GameAction =
   | { type: 'SET_BATTLE_SPEED'; speed: 1 | 2 | 3 }
   | { type: 'TICK_ENERGY' }
   | { type: 'LOAD_SAVE'; state: GameState }
+  | { type: 'SCENARIO_BATTLE'; regionId: string; stage: number; difficulty: Difficulty; team: string[] }
   | { type: 'RESET_GAME' };
 
 // Game Store class
@@ -320,6 +324,114 @@ export class GameStore {
       case 'SET_BATTLE_SPEED':
         s.settings.battleSpeed = action.speed;
         break;
+
+      case 'SCENARIO_BATTLE': {
+        const stageData = getScenarioStage(action.regionId, action.stage, action.difficulty);
+        if (!stageData) break;
+
+        // Check energy
+        if (s.player.energy < stageData.energyCost) break;
+        s.player.energy -= stageData.energyCost;
+
+        // Create ally units for a quick simulated battle
+        const scenarioAllies = action.team
+          .map(id => s.monsters.find(m => m.id === id))
+          .filter((m): m is MonsterInstance => !!m);
+
+        if (scenarioAllies.length === 0) break;
+
+        const allyUnits = scenarioAllies.map(m => createBattleUnit(m, true));
+        const enemyUnits = stageData.enemies.map(e => createEnemyUnit(e.templateId, e.level, e.stars));
+
+        const scenarioEngine = new BattleEngine(allyUnits, enemyUnits);
+        const scenarioResult = scenarioEngine.runFullBattle();
+        const scenarioVictory = scenarioResult.status === 'victory';
+
+        // Mana reward
+        const manaReward = scenarioVictory
+          ? stageData.rewards.manaBase + randomInt(0, Math.floor(stageData.rewards.manaBase * 0.2))
+          : Math.floor(stageData.rewards.manaBase * 0.2);
+        s.player.mana += manaReward;
+
+        // XP distribution (only on victory)
+        if (scenarioVictory) {
+          const teamMembers = scenarioAllies.map(m => ({
+            id: m.id,
+            level: m.level,
+            maxLevel: m.stars * 5 + 10,
+          }));
+          const expDist = calculateExpDistribution(stageData.rewards.expBase, teamMembers);
+
+          for (const { id, exp } of expDist) {
+            if (exp <= 0) continue;
+            const mon = s.monsters.find(m => m.id === id);
+            if (!mon) continue;
+            const maxLevel = mon.stars * 5 + 10;
+            mon.experience += exp;
+            // Level up if enough XP (simple: 100 * level XP per level)
+            while (mon.level < maxLevel && mon.experience >= mon.level * 100) {
+              mon.experience -= mon.level * 100;
+              mon.level++;
+            }
+            if (mon.level >= maxLevel) {
+              mon.experience = 0;
+            }
+            mon.computedStats = computeStats(mon);
+          }
+
+          // Update scenario progress
+          const progressKey = `${action.regionId}_${action.difficulty}`;
+          const currentProgress = s.scenarioProgress[progressKey] || 0;
+          if (action.stage > currentProgress) {
+            s.scenarioProgress[progressKey] = action.stage;
+          }
+
+          // Rune drop chance
+          if (chance(stageData.rewards.runeDropChance)) {
+            const runeStars = Math.max(1, stageData.rewards.runeStars - randomInt(0, 1)) as 1 | 2 | 3 | 4 | 5 | 6;
+            const slot = randomInt(1, 6) as RuneSlot;
+            const mainStatOptions = this.getMainStatOptions(slot);
+            const mainType = mainStatOptions[randomInt(0, mainStatOptions.length - 1)];
+            const mainValue = this.getMainStatValue(mainType, runeStars, 0);
+            const numSubs = Math.min(4, Math.max(0, runeStars - 2));
+            const subStats: { type: RuneMainStat; value: number }[] = [];
+            const usedTypes = new Set([mainType]);
+            for (let i = 0; i < numSubs; i++) {
+              const subOptions = this.getSubStatOptions().filter(t => !usedTypes.has(t));
+              if (subOptions.length === 0) break;
+              const subType = subOptions[randomInt(0, subOptions.length - 1)];
+              usedTypes.add(subType);
+              subStats.push({ type: subType, value: this.getSubStatValue(subType, runeStars) });
+            }
+            const allSets: Array<import('../types').RuneSet> = ['energy', 'guard', 'swift', 'blade', 'rage', 'focus', 'fatal', 'despair'];
+            const runeSet = allSets[randomInt(0, allSets.length - 1)];
+            s.runes.push({
+              id: generateId(),
+              set: runeSet,
+              slot,
+              stars: runeStars,
+              level: 0,
+              mainStat: { type: mainType, value: mainValue },
+              subStats,
+            });
+          }
+
+          // Tiny scroll drop chance in hell mode
+          if (stageData.rewards.scrollDropChance > 0 && chance(stageData.rewards.scrollDropChance)) {
+            s.inventory.mysticalScrolls++;
+          }
+        }
+
+        // Player XP
+        s.player.experience += scenarioVictory ? 10 : 2;
+        const playerLevelUp = s.player.experience >= s.player.level * 50;
+        if (playerLevelUp) {
+          s.player.experience -= s.player.level * 50;
+          s.player.level++;
+          s.player.maxEnergy = 90 + s.player.level;
+        }
+        break;
+      }
 
       case 'LOAD_SAVE':
         this.setState(action.state);

@@ -5,10 +5,11 @@ import { SummonPage } from './components/SummonPage';
 import { DungeonPage } from './components/DungeonPage';
 import { RunePage } from './components/RunePage';
 import { ArenaPage } from './components/ArenaPage';
+import { ScenarioPage } from './components/ScenarioPage';
 import { BattlePage } from './components/BattlePage';
 import { formatNumber } from './utils/helpers';
 
-type Page = 'monsters' | 'summon' | 'dungeon' | 'runes' | 'arena' | 'battle';
+type Page = 'monsters' | 'summon' | 'scenario' | 'dungeon' | 'runes' | 'arena' | 'battle';
 
 export interface BattleSetup {
   team: string[];
@@ -59,6 +60,7 @@ function App() {
         {([
           ['monsters', '🐉 魔灵'],
           ['summon', '📜 召唤'],
+          ['scenario', '🗺 场景'],
           ['dungeon', '🏰 副本'],
           ['runes', '💠 符文'],
           ['arena', '⚔ 竞技场'],
@@ -86,6 +88,7 @@ function App() {
 
       {page === 'monsters' && <MonsterPage />}
       {page === 'summon' && <SummonPage />}
+      {page === 'scenario' && <ScenarioPage />}
       {page === 'dungeon' && <DungeonPage onStartBattle={startBattle} />}
       {page === 'runes' && <RunePage />}
       {page === 'arena' && <ArenaPage onStartBattle={startBattle} />}

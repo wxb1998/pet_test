@@ -228,6 +228,7 @@ export interface GameState {
     angelmons: { [key in Element]: number };
   };
   dungeonProgress: { [key in DungeonType]?: number }; // highest cleared floor
+  scenarioProgress: { [regionId: string]: number }; // highest cleared stage per region
   arenaDefense: string[]; // monster instance ids
   idleProgress: {
     currentDungeon?: DungeonType;
