@@ -24,7 +24,7 @@ export function ScenarioPage({ onStartBattle }: { onStartBattle: (setup: BattleS
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedStage, setSelectedStage] = useState(1);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
-  const [team, setTeam] = useState<string[]>([]);
+  const [team, setTeam] = useState<string[]>(state.savedTeam?.scenario || []);
   const [lastResult, setLastResult] = useState<{
     victory: boolean;
     expGains: { id: string; name: string; exp: number }[];
@@ -64,6 +64,9 @@ export function ScenarioPage({ onStartBattle }: { onStartBattle: (setup: BattleS
       return;
     }
 
+    // Save team for later
+    dispatch({ type: 'SAVE_TEAM', mode: 'scenario', team });
+
     // Open animated battle page
     onStartBattle({
       team,
@@ -79,6 +82,9 @@ export function ScenarioPage({ onStartBattle }: { onStartBattle: (setup: BattleS
     setAutoFarming(true);
     setAutoCount(0);
     setAutoTotalExp(0);
+
+    // Save team for later
+    dispatch({ type: 'SAVE_TEAM', mode: 'scenario', team });
 
     autoRef.current = setInterval(() => {
       const stageData = getScenarioStage(selectedRegion, selectedStage, difficulty);
@@ -188,8 +194,9 @@ export function ScenarioPage({ onStartBattle }: { onStartBattle: (setup: BattleS
         <div style={{ fontSize: '8px', color: 'var(--text-dim)', marginBottom: '6px' }}>选择关卡:</div>
         <div className="floor-selector">
           {Array.from({ length: 7 }, (_, i) => i + 1).map(stage => {
-            const cleared = (state.scenarioProgress?.[selectedRegion] || 0) >= stage;
-            const unlocked = stage <= (state.scenarioProgress?.[selectedRegion] || 0) + 1;
+            const progressKey = `${selectedRegion}_${difficulty}`;
+            const cleared = (state.scenarioProgress?.[progressKey] || 0) >= stage;
+            const unlocked = stage <= (state.scenarioProgress?.[progressKey] || 0) + 1;
             return (
               <button
                 key={stage}

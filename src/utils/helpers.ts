@@ -56,6 +56,14 @@ export function computeStats(instance: MonsterInstance): BaseStats {
   let resistance = base.resistance;
   let accuracy = base.accuracy;
 
+  // Awakening bonus: 10% HP, 10% ATK, 10% DEF, 5 SPD
+  if (instance.awakened) {
+    hp = Math.floor(hp * 1.1);
+    atk = Math.floor(atk * 1.1);
+    def = Math.floor(def * 1.1);
+    spd += 5;
+  }
+
   // Add rune stats
   let hpPercent = 0, atkPercent = 0, defPercent = 0;
   let hpFlat = 0, atkFlat = 0, defFlat = 0;

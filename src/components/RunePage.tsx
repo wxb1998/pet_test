@@ -23,6 +23,7 @@ export function RunePage() {
   const [selectedRune, setSelectedRune] = useState<Rune | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [tab, setTab] = useState<'inventory' | 'equipped'>('inventory');
+  const [equipTarget, setEquipTarget] = useState<string | null>(null);
 
   // Get all runes (inventory + equipped)
   const inventoryRunes = state.runes;
@@ -109,7 +110,7 @@ export function RunePage() {
       </div>
 
       {/* Rune detail / upgrade modal */}
-      {selectedRune && (
+      {selectedRune && !equipTarget && (
         <div className="modal-overlay" onClick={() => setSelectedRune(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-title">
@@ -129,6 +130,14 @@ export function RunePage() {
             </div>
 
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {!selectedRune.equippedTo && (
+                <button
+                  className="pixel-btn primary small"
+                  onClick={() => setEquipTarget('select')}
+                >
+                  装备到怪物
+                </button>
+              )}
               <button
                 className="pixel-btn gold small"
                 disabled={selectedRune.level >= 15}
@@ -150,6 +159,40 @@ export function RunePage() {
               </button>
               <button className="pixel-btn secondary small" onClick={() => setSelectedRune(null)}>
                 关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monster selector for equipping rune */}
+      {selectedRune && equipTarget === 'select' && (
+        <div className="modal-overlay" onClick={() => setEquipTarget(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">选择装备怪物</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '300px', overflowY: 'auto' }}>
+              {state.monsters.map(mon => {
+                const template = getTemplate(mon.templateId);
+                if (!template) return null;
+                return (
+                  <button
+                    key={mon.id}
+                    className="pixel-btn secondary"
+                    style={{ textAlign: 'left', padding: '6px' }}
+                    onClick={() => {
+                      dispatch({ type: 'EQUIP_RUNE', monsterId: mon.id, rune: selectedRune });
+                      setSelectedRune(null);
+                      setEquipTarget(null);
+                    }}
+                  >
+                    {template.nameZh} Lv.{mon.level} {mon.stars}★
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <button className="pixel-btn secondary small" onClick={() => setEquipTarget(null)}>
+                取消
               </button>
             </div>
           </div>

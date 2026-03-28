@@ -25,7 +25,7 @@ export function DungeonPage({ onStartBattle }: Props) {
   const store = useGameStore();
   const [selectedDungeon, setSelectedDungeon] = useState<DungeonType | null>(null);
   const [selectedFloor, setSelectedFloor] = useState(1);
-  const [team, setTeam] = useState<string[]>([]);
+  const [team, setTeam] = useState<string[]>(state.savedTeam?.dungeon || []);
   const [battleResult, setBattleResult] = useState<any>(null);
 
   const toggleTeamMember = (id: string) => {
@@ -44,6 +44,9 @@ export function DungeonPage({ onStartBattle }: Props) {
       alert('体力不足！');
       return;
     }
+
+    // Save team for later
+    dispatch({ type: 'SAVE_TEAM', mode: 'dungeon', team });
 
     onStartBattle({
       team,
@@ -74,6 +77,7 @@ export function DungeonPage({ onStartBattle }: Props) {
 
   const handleStartIdle = () => {
     if (!selectedDungeon || team.length === 0) return;
+    dispatch({ type: 'SAVE_TEAM', mode: 'dungeon', team });
     dispatch({ type: 'START_IDLE', dungeon: selectedDungeon, floor: selectedFloor });
 
     // Simulate idle runs

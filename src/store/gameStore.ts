@@ -131,6 +131,7 @@ export type GameAction =
   | { type: 'TICK_ENERGY' }
   | { type: 'LOAD_SAVE'; state: GameState }
   | { type: 'SCENARIO_BATTLE'; regionId: string; stage: number; difficulty: Difficulty; team: string[] }
+  | { type: 'SAVE_TEAM'; mode: 'scenario' | 'dungeon' | 'arena'; team: string[] }
   | { type: 'RESET_GAME' };
 
 // Game Store class
@@ -235,11 +236,11 @@ export class GameStore {
         const maxLvl = mon.stars * 5 + 10;
         // Must be max level
         if (mon.level < maxLvl) break;
-        // Need N fodders where N = current stars, each fodder must be >= current stars
+        // Need N fodders where N = current stars, each fodder must be EXACTLY current stars
         const requiredFodder = mon.stars;
         const fodders = action.fodderIds
           .map(fid => s.monsters.find(m => m.id === fid))
-          .filter((f): f is MonsterInstance => !!f && f.id !== mon.id && f.stars >= mon.stars);
+          .filter((f): f is MonsterInstance => !!f && f.id !== mon.id && f.stars === mon.stars);
         if (fodders.length < requiredFodder) break;
         // Consume fodder monsters
         const fodderIdSet = new Set(fodders.slice(0, requiredFodder).map(f => f.id));
@@ -498,6 +499,12 @@ export class GameStore {
           s.player.level++;
           s.player.maxEnergy = 90 + s.player.level;
         }
+        break;
+      }
+
+      case 'SAVE_TEAM': {
+        if (!s.savedTeam) s.savedTeam = {};
+        s.savedTeam[action.mode] = action.team;
         break;
       }
 

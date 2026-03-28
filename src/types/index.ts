@@ -230,6 +230,11 @@ export interface GameState {
   dungeonProgress: { [key in DungeonType]?: number }; // highest cleared floor
   scenarioProgress: { [regionId: string]: number }; // highest cleared stage per region
   arenaDefense: string[]; // monster instance ids
+  savedTeam?: {
+    scenario?: string[];
+    dungeon?: string[];
+    arena?: string[];
+  };
   idleProgress: {
     currentDungeon?: DungeonType;
     currentFloor?: number;

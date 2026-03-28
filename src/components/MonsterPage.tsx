@@ -117,6 +117,7 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
   const maxLevel = mon.stars * 5 + 10;
   const [showEvolve, setShowEvolve] = useState(false);
   const [selectedFodder, setSelectedFodder] = useState<string[]>([]);
+  const [selectingRuneSlot, setSelectingRuneSlot] = useState<number | null>(null);
 
   const natStars = template.naturalStars;
   const awakenCost = natStars <= 3 ? 10000 : natStars === 4 ? 50000 : 100000;
@@ -124,9 +125,9 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
   const isMaxLevel = mon.level >= maxLevel;
   const requiredFodder = mon.stars;
 
-  // Available fodder: same or higher star, not the evolving monster
+  // Available fodder: exactly same star level, not the evolving monster
   const availableFodder = state.monsters.filter(
-    m => m.id !== mon.id && m.stars >= mon.stars
+    m => m.id !== mon.id && m.stars === mon.stars
   );
 
   const toggleFodder = (id: string) => {
@@ -306,7 +307,12 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
               {([1, 2, 3, 4, 5, 6] as const).map(slot => {
                 const rune = mon.runes[slot];
                 return (
-                  <div key={slot} className={`rune-slot ${rune ? 'filled' : ''}`}>
+                  <div
+                    key={slot}
+                    className={`rune-slot ${rune ? 'filled' : ''}`}
+                    style={{ cursor: !rune ? 'pointer' : 'default' }}
+                    onClick={() => !rune && setSelectingRuneSlot(slot)}
+                  >
                     <div className="slot-num">槽位 {slot}</div>
                     {rune ? (
                       <>
@@ -321,6 +327,40 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
               })}
             </div>
           </div>
+
+          {/* Rune selector for empty slot */}
+          {selectingRuneSlot && (
+            <div className="modal-overlay" onClick={() => setSelectingRuneSlot(null)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-title">选择符文装备到槽位 {selectingRuneSlot}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '300px', overflowY: 'auto' }}>
+                  {state.runes.filter(r => !r.equippedTo && r.slot === selectingRuneSlot).map(rune => (
+                    <button
+                      key={rune.id}
+                      className="pixel-btn secondary"
+                      style={{ textAlign: 'left', padding: '6px', fontSize: '7px' }}
+                      onClick={() => {
+                        dispatch({ type: 'EQUIP_RUNE', monsterId: mon.id, rune });
+                        setSelectingRuneSlot(null);
+                      }}
+                    >
+                      {rune.set} +{rune.level} {'★'.repeat(rune.stars)}
+                    </button>
+                  ))}
+                </div>
+                {state.runes.filter(r => !r.equippedTo && r.slot === selectingRuneSlot).length === 0 && (
+                  <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '7px' }}>
+                    没有可用的符文
+                  </div>
+                )}
+                <div style={{ marginTop: '8px' }}>
+                  <button className="pixel-btn secondary small" onClick={() => setSelectingRuneSlot(null)}>
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
