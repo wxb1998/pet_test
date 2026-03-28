@@ -6,10 +6,9 @@ import { getDungeonFloor } from '../data/dungeons';
 import { getScenarioStage } from '../data/scenarios';
 import type { Difficulty } from '../data/scenarios';
 import type { BattleSetup } from '../App';
-import { ELEMENT_PALETTES, MONSTER_SPRITES } from './PixelSprite';
+import { drawMonsterSprite } from './PixelSprite';
 
 // ========== TYPES ==========
-type PixelGrid = number[][];
 
 interface BattleSprite {
   unit: BattleUnit;
@@ -62,10 +61,10 @@ interface SkillBanner {
 }
 
 // ========== CONSTANTS ==========
-const CANVAS_W = 400;
-const CANVAS_H = 240;
-const SPRITE_SIZE = 40; // pixels on canvas
-const GROUND_Y = 170;
+const CANVAS_W = 800;
+const CANVAS_H = 480;
+const SPRITE_SIZE = 96; // pixels on canvas - large for detailed sprites
+const GROUND_Y = 350;
 
 const ELEMENT_COLORS: Record<Element, string> = {
   fire: '#FF4422', water: '#44AAFF', wind: '#44DD44', light: '#FFDD44', dark: '#CC66FF',
@@ -90,45 +89,14 @@ function drawPixelSprite(
   tint?: string,
   scaleY: number = 1,
 ) {
-  const palette = ELEMENT_PALETTES[element];
-  const sprite: PixelGrid = MONSTER_SPRITES[family] || MONSTER_SPRITES['Pixie'];
-  const pixelSize = size / 16;
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x + size / 2, y + size / 2);
-  if (flipX) ctx.scale(-1, 1);
-  ctx.scale(1, scaleY);
-  ctx.translate(-size / 2, -size / 2);
-
-  const colorMap: Record<number, string> = {
-    1: tint || palette.outline,
-    2: tint || palette.primary,
-    3: tint || palette.secondary,
-    4: tint || palette.accent,
-    5: '#FFFFFF',
-  };
-
-  for (let row = 0; row < 16; row++) {
-    for (let col = 0; col < 16; col++) {
-      const val = sprite[row]?.[col] ?? 0;
-      if (val === 0) continue;
-      ctx.fillStyle = colorMap[val] || palette.primary;
-      ctx.fillRect(
-        Math.floor(col * pixelSize),
-        Math.floor(row * pixelSize),
-        Math.ceil(pixelSize),
-        Math.ceil(pixelSize),
-      );
-    }
-  }
-  ctx.restore();
+  // Use the new canvas-based drawing system
+  drawMonsterSprite(ctx, family, element, x, y, size, flipX, alpha, tint, scaleY);
 }
 
 function drawShadow(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
-  ctx.ellipse(x + size / 2, y + size + 2, size * 0.35, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + size / 2, y + size + 4, size * 0.38, size * 0.08, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -150,7 +118,7 @@ function createParticles(
       life: 1,
       maxLife: 1,
       color,
-      size: type === 'ring' ? 8 : type === 'slash' ? 12 : (Math.random() * 3 + 2),
+      size: type === 'ring' ? 16 : type === 'slash' ? 24 : (Math.random() * 6 + 4),
       type,
     });
   }
@@ -162,20 +130,20 @@ function createSkillParticles(element: Element, x: number, y: number, skillType:
   switch (skillType) {
     case 'damage':
       return [
-        ...createParticles(x, y, 12, color, 'spark', 4),
-        ...createParticles(x, y, 3, '#FFFFFF', 'slash', 2),
+        ...createParticles(x, y, 20, color, 'spark', 6),
+        ...createParticles(x, y, 5, '#FFFFFF', 'slash', 3),
       ];
     case 'heal':
     case 'heal_percent':
-      return createParticles(x, y - 10, 8, '#44FF88', 'heal', 1.5);
+      return createParticles(x, y - 20, 12, '#44FF88', 'heal', 2.5);
     case 'buff':
-      return createParticles(x, y - 5, 6, '#44AAFF', 'star', 1.5);
+      return createParticles(x, y - 10, 10, '#44AAFF', 'star', 2.5);
     case 'debuff':
-      return createParticles(x, y, 8, '#FF6600', 'circle', 2);
+      return createParticles(x, y, 12, '#FF6600', 'circle', 3);
     case 'strip':
-      return createParticles(x, y, 6, '#CC66FF', 'ring', 2);
+      return createParticles(x, y, 10, '#CC66FF', 'ring', 3);
     default:
-      return createParticles(x, y, 8, color, 'spark', 3);
+      return createParticles(x, y, 12, color, 'spark', 5);
   }
 }
 
@@ -191,12 +159,13 @@ function drawBackground(ctx: CanvasRenderingContext2D, time: number) {
 
   // Twinkling stars
   ctx.fillStyle = '#FFFFFF';
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     const sx = (i * 73 + 17) % CANVAS_W;
-    const sy = (i * 41 + 5) % (GROUND_Y - 30);
+    const sy = (i * 41 + 5) % (GROUND_Y - 50);
     const twinkle = Math.sin(time / 1000 + i * 1.7) * 0.5 + 0.5;
-    ctx.globalAlpha = twinkle * 0.6;
-    ctx.fillRect(sx, sy, 1, 1);
+    ctx.globalAlpha = twinkle * 0.7;
+    const starSize = (i % 3 === 0) ? 2 : 1;
+    ctx.fillRect(sx, sy, starSize, starSize);
   }
   ctx.globalAlpha = 1;
 
@@ -210,17 +179,18 @@ function drawBackground(ctx: CanvasRenderingContext2D, time: number) {
 
   // Ground texture (pixel dots)
   ctx.fillStyle = '#5a7a5a';
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 80; i++) {
     const gx = (i * 53 + 11) % CANVAS_W;
-    const gy = GROUND_Y + 5 + (i * 31) % (CANVAS_H - GROUND_Y - 10);
-    ctx.fillRect(gx, gy, 2, 1);
+    const gy = GROUND_Y + 8 + (i * 31) % (CANVAS_H - GROUND_Y - 15);
+    ctx.fillRect(gx, gy, 3, 2);
   }
 
   // Divider line
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.setLineDash([8, 8]);
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(CANVAS_W / 2, GROUND_Y + 5);
+  ctx.moveTo(CANVAS_W / 2, GROUND_Y + 8);
   ctx.lineTo(CANVAS_W / 2, CANVAS_H);
   ctx.stroke();
   ctx.setLineDash([]);
@@ -229,29 +199,44 @@ function drawBackground(ctx: CanvasRenderingContext2D, time: number) {
 // ========== HP BAR ==========
 function drawHpBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, current: number, max: number, _element: Element) {
   const ratio = Math.max(0, current / max);
-  const barH = 4;
+  const barH = 8;
+  const radius = 3;
 
-  // BG
+  // BG with rounded corners
   ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(x, y, w, barH);
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, barH, radius);
+  ctx.fill();
 
   // HP bar
   const hpColor = ratio > 0.5 ? '#44DD44' : ratio > 0.25 ? '#DDDD44' : '#DD4444';
-  ctx.fillStyle = hpColor;
-  ctx.fillRect(x, y, w * ratio, barH);
+  if (ratio > 0) {
+    ctx.fillStyle = hpColor;
+    ctx.beginPath();
+    ctx.roundRect(x, y, Math.max(radius * 2, w * ratio), barH, radius);
+    ctx.fill();
+  }
 
   // Border
-  ctx.strokeStyle = '#888';
-  ctx.lineWidth = 0.5;
-  ctx.strokeRect(x, y, w, barH);
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, barH, radius);
+  ctx.stroke();
+
+  // HP text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 7px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${Math.ceil(current)}`, x + w / 2, y + barH - 1);
 }
 
 function drawAtbBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, atb: number) {
   const ratio = Math.min(1, atb / 100);
-  const barH = 2;
+  const barH = 4;
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(x, y, w, barH);
-  ctx.fillStyle = ratio >= 1 ? '#FFD700' : '#8888FF';
+  ctx.fillStyle = ratio >= 1 ? '#FFD700' : '#6666CC';
   ctx.fillRect(x, y, w * ratio, barH);
 }
 
@@ -294,11 +279,11 @@ function drawEffects(ctx: CanvasRenderingContext2D, unit: BattleUnit, x: number,
   ];
   if (allEffects.length === 0) return;
 
-  const maxShow = 8;
+  const maxShow = 10;
   const shown = allEffects.slice(0, maxShow);
-  const iconW = 10;
-  const iconH = 9;
-  const gap = 1;
+  const iconW = 20;
+  const iconH = 18;
+  const gap = 2;
   const totalW = shown.length * (iconW + gap) - gap;
   const startX = x - totalW / 2;
 
@@ -306,30 +291,34 @@ function drawEffects(ctx: CanvasRenderingContext2D, unit: BattleUnit, x: number,
     const ix = startX + i * (iconW + gap);
     const iy = y;
 
-    // Background box
-    const bgColor = effect.isBuff ? 'rgba(0,80,200,0.7)' : 'rgba(200,40,0,0.7)';
+    // Background box with rounded corners
+    const bgColor = effect.isBuff ? 'rgba(0,80,200,0.75)' : 'rgba(200,40,0,0.75)';
     ctx.fillStyle = bgColor;
-    ctx.fillRect(ix, iy, iconW, iconH);
+    ctx.beginPath();
+    ctx.roundRect(ix, iy, iconW, iconH, 3);
+    ctx.fill();
 
     // Border
     ctx.strokeStyle = effect.isBuff ? '#44AAFF' : '#FF6644';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(ix, iy, iconW, iconH);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(ix, iy, iconW, iconH, 3);
+    ctx.stroke();
 
     // Icon/text
     const icons = effect.isBuff ? BUFF_ICONS : DEBUFF_ICONS;
     const iconInfo = icons[effect.type] || { symbol: effect.isBuff ? '↑' : '↓', color: effect.isBuff ? '#88CCFF' : '#FF8866' };
     ctx.fillStyle = iconInfo.color;
-    ctx.font = 'bold 6px monospace';
+    ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(iconInfo.symbol.charAt(0), ix + iconW / 2, iy + iconH - 2);
+    ctx.fillText(iconInfo.symbol.charAt(0), ix + iconW / 2, iy + iconH - 4);
 
     // Duration indicator (turns left)
     if (effect.turns > 0) {
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '5px monospace';
+      ctx.font = 'bold 9px monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(`${effect.turns}`, ix + iconW - 1, iy + 5);
+      ctx.fillText(`${effect.turns}`, ix + iconW - 2, iy + 9);
     }
   });
 }
@@ -364,11 +353,13 @@ export function BattlePage({ setup, onEnd }: Props) {
     const allyCount = state.allies.length;
     const enemyCount = state.enemies.length;
 
-    // Allies on left side
+    // Allies on left side - staggered formation
     state.allies.forEach((unit, i) => {
-      const x = 30 + (i % 2) * 30;
-      const y = GROUND_Y - SPRITE_SIZE - 20 + i * (SPRITE_SIZE + 12) - (allyCount * 10);
-      const baseY = Math.min(GROUND_Y - SPRITE_SIZE - 5, Math.max(GROUND_Y - SPRITE_SIZE * 2.5, y));
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 40 + col * 60;
+      const y = GROUND_Y - SPRITE_SIZE - 30 + row * (SPRITE_SIZE + 20) - (Math.min(allyCount, 3) * 15);
+      const baseY = Math.min(GROUND_Y - SPRITE_SIZE - 10, Math.max(GROUND_Y - SPRITE_SIZE * 3, y));
       sprites.push({
         unit, x, y: baseY, baseX: x, baseY: baseY,
         size: SPRITE_SIZE, flipX: false,
@@ -377,11 +368,13 @@ export function BattlePage({ setup, onEnd }: Props) {
       });
     });
 
-    // Enemies on right side
+    // Enemies on right side - staggered formation
     state.enemies.forEach((unit, i) => {
-      const x = CANVAS_W - 30 - SPRITE_SIZE - (i % 2) * 30;
-      const y = GROUND_Y - SPRITE_SIZE - 20 + i * (SPRITE_SIZE + 12) - (enemyCount * 10);
-      const baseY = Math.min(GROUND_Y - SPRITE_SIZE - 5, Math.max(GROUND_Y - SPRITE_SIZE * 2.5, y));
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = CANVAS_W - 40 - SPRITE_SIZE - col * 60;
+      const y = GROUND_Y - SPRITE_SIZE - 30 + row * (SPRITE_SIZE + 20) - (Math.min(enemyCount, 3) * 15);
+      const baseY = Math.min(GROUND_Y - SPRITE_SIZE - 10, Math.max(GROUND_Y - SPRITE_SIZE * 3, y));
       sprites.push({
         unit, x, y: baseY, baseX: x, baseY: baseY,
         size: SPRITE_SIZE, flipX: true,
@@ -456,19 +449,19 @@ export function BattlePage({ setup, onEnd }: Props) {
       const isHeal = !!entry.heal && entry.heal > 0;
 
       if (isDamage && targetSprite) {
-        // Attacker rushes to target
+        // Attacker rushes to target - slower for drama
         actorSprite.anim = {
           type: 'rush',
-          targetX: targetSprite.x + (actorSprite.flipX ? SPRITE_SIZE + 10 : -SPRITE_SIZE - 10),
+          targetX: targetSprite.x + (actorSprite.flipX ? SPRITE_SIZE + 20 : -SPRITE_SIZE - 20),
           targetY: targetSprite.y,
           startTime: now,
-          duration: 200,
+          duration: 350,
         };
 
         // Target gets hit after delay
         setTimeout(() => {
           if (targetSprite) {
-            targetSprite.anim = { type: 'hit', startTime: Date.now(), duration: 300 };
+            targetSprite.anim = { type: 'hit', startTime: Date.now(), duration: 500 };
             // Damage particles
             particlesRef.current.push(
               ...createSkillParticles(
@@ -478,18 +471,18 @@ export function BattlePage({ setup, onEnd }: Props) {
                 'damage',
               )
             );
-            // Damage number
+            // Damage number - bigger font for bigger canvas
             floatsRef.current.push({
               x: targetSprite.x + SPRITE_SIZE / 2,
-              y: targetSprite.y - 5,
+              y: targetSprite.y - 10,
               text: `-${entry.damage}`,
               color: '#FF4444',
               startTime: Date.now(),
-              duration: 1200,
-              fontSize: entry.damage! > 5000 ? 14 : entry.damage! > 1000 ? 12 : 10,
+              duration: 1500,
+              fontSize: entry.damage! > 5000 ? 24 : entry.damage! > 1000 ? 20 : 16,
             });
           }
-        }, 180);
+        }, 320);
 
         // Attacker returns after hit
         setTimeout(() => {
@@ -498,15 +491,15 @@ export function BattlePage({ setup, onEnd }: Props) {
             startX: actorSprite.x,
             startY: actorSprite.y,
             startTime: Date.now(),
-            duration: 200,
+            duration: 300,
           };
-          setTimeout(() => { actorSprite.anim = { type: 'idle' }; }, 200);
-        }, 400);
+          setTimeout(() => { actorSprite.anim = { type: 'idle' }; }, 300);
+        }, 650);
 
       } else if (isHeal && targetSprite) {
-        // Cast animation
-        actorSprite.anim = { type: 'cast', startTime: now, duration: 400 };
-        setTimeout(() => { actorSprite.anim = { type: 'idle' }; }, 400);
+        // Cast animation - slower
+        actorSprite.anim = { type: 'cast', startTime: now, duration: 600 };
+        setTimeout(() => { actorSprite.anim = { type: 'idle' }; }, 600);
 
         // Heal particles on target
         particlesRef.current.push(
@@ -514,17 +507,17 @@ export function BattlePage({ setup, onEnd }: Props) {
         );
         floatsRef.current.push({
           x: targetSprite.x + SPRITE_SIZE / 2,
-          y: targetSprite.y - 5,
+          y: targetSprite.y - 10,
           text: `+${entry.heal}`,
           color: '#44FF88',
           startTime: now,
-          duration: 1000,
-          fontSize: 10,
+          duration: 1200,
+          fontSize: 18,
         });
       } else if (entry.effects && entry.effects.length > 0) {
-        // Buff/debuff
-        actorSprite.anim = { type: 'cast', startTime: now, duration: 300 };
-        setTimeout(() => { actorSprite.anim = { type: 'idle' }; }, 300);
+        // Buff/debuff - slower
+        actorSprite.anim = { type: 'cast', startTime: now, duration: 500 };
+        setTimeout(() => { actorSprite.anim = { type: 'idle' }; }, 500);
 
         if (targetSprite) {
           const pType = entry.action.includes('强化') || entry.action.includes('增益') ? 'buff' : 'debuff';
@@ -534,13 +527,13 @@ export function BattlePage({ setup, onEnd }: Props) {
         }
       }
 
-      // Skill name banner
+      // Skill name banner - longer display
       if (entry.action && !entry.action.includes('倒下')) {
         bannerRef.current = {
           text: `${entry.actorName}: ${entry.action}`,
           color: ELEMENT_COLORS[actorSprite.unit.element],
           startTime: now,
-          duration: 800,
+          duration: 1200,
         };
       }
     }
@@ -566,11 +559,11 @@ export function BattlePage({ setup, onEnd }: Props) {
 
     const interval = setInterval(() => {
       if (!engineRef.current) return;
-      const ticksPerFrame = speed === 3 ? 10 : speed === 2 ? 5 : 2;
+      const ticksPerFrame = speed === 3 ? 8 : speed === 2 ? 3 : 1;
       const newState = engineRef.current.runTicks(ticksPerFrame);
       processNewLogs(newState);
       setBattleState({ ...newState });
-    }, speed === 3 ? 60 : speed === 2 ? 80 : 120);
+    }, speed === 3 ? 80 : speed === 2 ? 150 : 250);
 
     return () => clearInterval(interval);
   }, [battleState?.status, speed, processNewLogs]);
@@ -601,8 +594,8 @@ export function BattlePage({ setup, onEnd }: Props) {
         let tint: string | undefined;
         let scaleY = 1;
 
-        // Idle bounce
-        const idleBounce = Math.sin(now / 400 + sprite.baseX) * 2;
+        // Idle bounce - bigger for bigger sprites
+        const idleBounce = Math.sin(now / 500 + sprite.baseX) * 4;
 
         switch (anim.type) {
           case 'idle':
@@ -627,7 +620,7 @@ export function BattlePage({ setup, onEnd }: Props) {
           }
           case 'hit': {
             const t = (now - anim.startTime) / anim.duration;
-            drawX = sprite.baseX + Math.sin(t * Math.PI * 6) * 4;
+            drawX = sprite.baseX + Math.sin(t * Math.PI * 6) * 8;
             drawY = sprite.baseY + idleBounce;
             tint = t < 0.3 ? '#FF4444' : undefined;
             if (t >= 1) sprite.anim = { type: 'idle' };
@@ -635,7 +628,7 @@ export function BattlePage({ setup, onEnd }: Props) {
           }
           case 'cast': {
             const t = (now - anim.startTime) / anim.duration;
-            drawY = sprite.baseY - Math.sin(t * Math.PI) * 8;
+            drawY = sprite.baseY - Math.sin(t * Math.PI) * 16;
             scaleY = 1 + Math.sin(t * Math.PI) * 0.1;
             if (t >= 1) sprite.anim = { type: 'idle' };
             break;
@@ -643,7 +636,7 @@ export function BattlePage({ setup, onEnd }: Props) {
           case 'death': {
             const t = Math.min(1, (now - anim.startTime) / anim.duration);
             alpha = 1 - t * 0.7;
-            drawY = sprite.baseY + t * 10;
+            drawY = sprite.baseY + t * 20;
             scaleY = 1 - t * 0.3;
             break;
           }
@@ -651,7 +644,7 @@ export function BattlePage({ setup, onEnd }: Props) {
 
         if (!unit.alive && anim.type !== 'death') {
           alpha = 0.3;
-          drawY = sprite.baseY + 10;
+          drawY = sprite.baseY + 20;
         }
 
         // Shadow
@@ -660,29 +653,29 @@ export function BattlePage({ setup, onEnd }: Props) {
         // Sprite
         drawPixelSprite(ctx, unit.family, unit.element, drawX, drawY, size, flipX, alpha, tint, scaleY);
 
-        // Name
+        // Name - bigger font
         ctx.fillStyle = unit.isAlly ? '#88FF88' : '#FF8888';
-        ctx.font = 'bold 8px monospace';
+        ctx.font = 'bold 13px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(unit.nameZh, sprite.baseX + size / 2, sprite.baseY - 16);
+        ctx.fillText(unit.nameZh, sprite.baseX + size / 2, sprite.baseY - 32);
 
-        // HP bar
-        drawHpBar(ctx, sprite.baseX - 2, sprite.baseY - 12, size + 4, sprite.hp, sprite.maxHp, unit.element);
+        // HP bar - wider, positioned above sprite
+        drawHpBar(ctx, sprite.baseX - 4, sprite.baseY - 24, size + 8, sprite.hp, sprite.maxHp, unit.element);
 
         // ATB bar
-        drawAtbBar(ctx, sprite.baseX - 2, sprite.baseY - 7, size + 4, unit.attackBar);
+        drawAtbBar(ctx, sprite.baseX - 4, sprite.baseY - 14, size + 8, unit.attackBar);
 
         // Buff/debuff dots
         if (unit.alive) {
-          drawEffects(ctx, unit, sprite.baseX + size / 2, sprite.baseY + size + 6);
+          drawEffects(ctx, unit, sprite.baseX + size / 2, sprite.baseY + size + 12);
         }
 
         // Active indicator (current turn glow)
         if (battleState?.currentTurn === unit.instanceId && unit.alive) {
           ctx.strokeStyle = '#FFD700';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([3, 2]);
-          ctx.strokeRect(sprite.baseX - 3, sprite.baseY - 20, size + 6, size + 30);
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(sprite.baseX - 6, sprite.baseY - 38, size + 12, size + 60);
           ctx.setLineDash([]);
         }
       }
@@ -695,8 +688,8 @@ export function BattlePage({ setup, onEnd }: Props) {
 
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.15; // gravity
-        if (p.type === 'heal') p.vy -= 0.3; // float up
+        p.vy += 0.2; // gravity
+        if (p.type === 'heal') p.vy -= 0.4; // float up
 
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
@@ -718,12 +711,12 @@ export function BattlePage({ setup, onEnd }: Props) {
             ctx.stroke();
             break;
           case 'heal': {
-            ctx.font = '10px monospace';
+            ctx.font = '18px monospace';
             ctx.fillText('✦', p.x, p.y);
             break;
           }
           case 'star': {
-            ctx.font = '8px monospace';
+            ctx.font = '14px monospace';
             ctx.fillText('★', p.x, p.y);
             break;
           }
@@ -745,7 +738,7 @@ export function BattlePage({ setup, onEnd }: Props) {
         const t = (now - ft.startTime) / ft.duration;
         if (t >= 1) return false;
 
-        const y = ft.y - t * 25;
+        const y = ft.y - t * 50;
         const alpha = t < 0.2 ? t / 0.2 : t > 0.7 ? (1 - t) / 0.3 : 1;
         const scale = t < 0.1 ? 0.5 + t * 5 : 1;
 
@@ -756,7 +749,7 @@ export function BattlePage({ setup, onEnd }: Props) {
         ctx.font = `bold ${ft.fontSize}px monospace`;
         ctx.textAlign = 'center';
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeText(ft.text, 0, 0);
         ctx.fillStyle = ft.color;
         ctx.fillText(ft.text, 0, 0);
@@ -765,7 +758,7 @@ export function BattlePage({ setup, onEnd }: Props) {
         return true;
       });
 
-      // Skill banner
+      // Skill banner - bigger for bigger canvas
       const banner = bannerRef.current;
       if (banner) {
         const bt = (now - banner.startTime) / banner.duration;
@@ -774,12 +767,12 @@ export function BattlePage({ setup, onEnd }: Props) {
           ctx.save();
           ctx.globalAlpha = alpha * 0.85;
           ctx.fillStyle = '#000000';
-          ctx.fillRect(0, CANVAS_H / 2 - 12, CANVAS_W, 24);
+          ctx.fillRect(0, CANVAS_H / 2 - 20, CANVAS_W, 40);
           ctx.globalAlpha = alpha;
           ctx.fillStyle = banner.color;
-          ctx.font = 'bold 11px monospace';
+          ctx.font = 'bold 18px monospace';
           ctx.textAlign = 'center';
-          ctx.fillText(banner.text, CANVAS_W / 2, CANVAS_H / 2 + 4);
+          ctx.fillText(banner.text, CANVAS_W / 2, CANVAS_H / 2 + 6);
           ctx.restore();
         } else {
           bannerRef.current = null;
@@ -791,28 +784,34 @@ export function BattlePage({ setup, onEnd }: Props) {
         ctx.fillStyle = 'rgba(0,100,0,0.4)';
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 20px monospace';
+        ctx.font = 'bold 36px monospace';
         ctx.textAlign = 'center';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.strokeText('✦ 胜利 ✦', CANVAS_W / 2, CANVAS_H / 2);
         ctx.fillText('✦ 胜利 ✦', CANVAS_W / 2, CANVAS_H / 2);
       } else if (battleState?.status === 'defeat') {
         ctx.fillStyle = 'rgba(100,0,0,0.4)';
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         ctx.fillStyle = '#FF4444';
-        ctx.font = 'bold 20px monospace';
+        ctx.font = 'bold 36px monospace';
         ctx.textAlign = 'center';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.strokeText('✗ 失败 ✗', CANVAS_W / 2, CANVAS_H / 2);
         ctx.fillText('✗ 失败 ✗', CANVAS_W / 2, CANVAS_H / 2);
       }
 
-      // Wave info
+      // Wave info bar
       if (battleState) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0, 0, CANVAS_W, 14);
+        ctx.fillRect(0, 0, CANVAS_W, 24);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '9px monospace';
+        ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(`波次 ${battleState.wave}/${battleState.totalWaves}`, 5, 10);
+        ctx.fillText(`波次 ${battleState.wave}/${battleState.totalWaves}`, 10, 17);
         ctx.textAlign = 'right';
-        ctx.fillText(`x${speed}`, CANVAS_W - 5, 10);
+        ctx.fillText(`x${speed}`, CANVAS_W - 10, 17);
       }
 
       animFrameRef.current = requestAnimationFrame(render);
@@ -853,7 +852,7 @@ export function BattlePage({ setup, onEnd }: Props) {
 
   return (
     <div>
-      <div className="panel" style={{ padding: '4px' }}>
+      <div className="panel" style={{ padding: '6px' }}>
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
@@ -862,8 +861,8 @@ export function BattlePage({ setup, onEnd }: Props) {
             width: '100%',
             maxWidth: CANVAS_W,
             height: 'auto',
-            imageRendering: 'pixelated',
             border: '2px solid var(--border)',
+            borderRadius: '8px',
             background: '#000',
             display: 'block',
             margin: '0 auto',
@@ -872,10 +871,10 @@ export function BattlePage({ setup, onEnd }: Props) {
       </div>
 
       {/* Battle log (compact) */}
-      <div className="panel" style={{ maxHeight: '80px', overflowY: 'auto', padding: '4px' }}>
+      <div className="panel" style={{ maxHeight: '100px', overflowY: 'auto', padding: '6px' }}>
         <div className="battle-log">
-          {battleState.log.slice(-15).map((entry, i) => (
-            <div key={i} className="log-entry" style={{ fontSize: '6px' }}>
+          {battleState.log.slice(-20).map((entry, i) => (
+            <div key={i} className="log-entry" style={{ fontSize: '11px', lineHeight: '1.4' }}>
               <span className="name">{entry.actorName}</span>
               {' '}{entry.action}
               {entry.damage ? <span className="damage"> -{entry.damage}</span> : null}
