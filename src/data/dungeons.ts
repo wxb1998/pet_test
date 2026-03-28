@@ -528,14 +528,122 @@ export const NECROPOLIS_FLOORS: DungeonFloor[] = [
   },
 ];
 
+// ============ ELEMENTAL DUNGEONS (10 floors each) ============
+function makeElementalDungeon(element: 'fire' | 'water' | 'wind' | 'light' | 'dark'): DungeonFloor[] {
+  const monMap: Record<string, string> = {
+    fire: 'inugami_fire', water: 'mystic_witch_water', wind: 'griffon_wind',
+    light: 'fairy_queen_light', dark: 'vagabond_dark',
+  };
+  const bossMap: Record<string, string> = {
+    fire: 'phoenix_fire', water: 'phoenix_water', wind: 'phoenix_water',
+    light: 'archangel_light', dark: 'archangel_light',
+  };
+  const essenceElement = element;
+  const floors: DungeonFloor[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const lvl = 5 + i * 4;
+    const enemyStars = Math.min(Math.floor(i / 3) + 2, 5) as 1|2|3|4|5;
+    const bossStars = Math.min(Math.floor(i / 2) + 2, 6) as 1|2|3|4|5;
+    const enemies = [];
+    const count = Math.min(2 + Math.floor(i / 4), 4);
+    for (let j = 0; j < count; j++) {
+      enemies.push({ templateId: monMap[essenceElement], level: lvl, stars: enemyStars });
+    }
+    floors.push({
+      level: i,
+      enemies,
+      boss: { templateId: bossMap[essenceElement], level: lvl + 5, stars: bossStars },
+      rewards: {
+        mana: [800 * i, 1200 * i],
+        runeStars: [Math.min(Math.floor(i / 3) + 2, 5)],
+        runeSets: ['energy'], // Elemental dungeons drop essences, not runes mainly
+        expPerMon: 300 * i,
+      },
+    });
+  }
+  return floors;
+}
+
+const FIRE_DUNGEON_FLOORS = makeElementalDungeon('fire');
+const WATER_DUNGEON_FLOORS = makeElementalDungeon('water');
+const WIND_DUNGEON_FLOORS = makeElementalDungeon('wind');
+const LIGHT_DUNGEON_FLOORS = makeElementalDungeon('light');
+const DARK_DUNGEON_FLOORS = makeElementalDungeon('dark');
+
+// ============ TRIAL OF ASCENSION (100 floors) ============
+function makeToaFloors(hard: boolean): DungeonFloor[] {
+  const mult = hard ? 1.5 : 1;
+  const monPool = [
+    'inugami_fire', 'griffon_wind', 'mystic_witch_water', 'harpu_fire',
+    'vagabond_dark', 'pixie_wind', 'cowgirl_fire', 'garuda_water',
+  ];
+  const bossPool = [
+    'ifrit_fire', 'phoenix_fire', 'dragon_knight_water', 'valkyrja_wind',
+    'oracle_fire', 'archangel_light',
+  ];
+  const floors: DungeonFloor[] = [];
+  for (let i = 1; i <= 100; i++) {
+    const lvl = Math.floor(10 + i * 0.5 * mult);
+    const starBase = Math.min(Math.floor(i / 20) + 2, 5);
+    const enemies = [];
+    const count = i <= 50 ? 3 : 4;
+    for (let j = 0; j < count; j++) {
+      enemies.push({
+        templateId: monPool[(i + j) % monPool.length],
+        level: lvl,
+        stars: starBase as 1|2|3|4|5,
+      });
+    }
+    // Every 10th floor is a boss floor with better rewards
+    const isBoss = i % 10 === 0;
+    const bossTemplate = isBoss ? bossPool[Math.floor(i / 10) % bossPool.length] : monPool[i % monPool.length];
+    const bossStars = isBoss ? Math.min(starBase + 1, 6) : starBase;
+    floors.push({
+      level: i,
+      enemies,
+      boss: { templateId: bossTemplate, level: lvl + (isBoss ? 10 : 3), stars: bossStars as 1|2|3|4|5 },
+      rewards: {
+        mana: [1000 * Math.ceil(i / 10), 2000 * Math.ceil(i / 10)],
+        runeStars: isBoss ? [5, 6] : [Math.min(Math.floor(i / 20) + 3, 5)],
+        runeSets: isBoss ? ['violent', 'will', 'swift', 'rage'] : ['energy'],
+        expPerMon: 500 + i * 50,
+      },
+    });
+  }
+  return floors;
+}
+
+const TOA_FLOORS = makeToaFloors(false);
+const TOA_HARD_FLOORS = makeToaFloors(true);
+
 // Dungeon database
 export const DUNGEONS: Record<DungeonType, DungeonFloor[]> = {
   giants: GIANTS_FLOORS,
   dragons: DRAGONS_FLOORS,
   necropolis: NECROPOLIS_FLOORS,
-  steel_fortress: GIANTS_FLOORS, // Placeholder - same as Giants for now
-  punishers_crypt: NECROPOLIS_FLOORS, // Placeholder - same as Necropolis for now
+  steel_fortress: GIANTS_FLOORS,
+  punishers_crypt: NECROPOLIS_FLOORS,
+  fire_dungeon: FIRE_DUNGEON_FLOORS,
+  water_dungeon: WATER_DUNGEON_FLOORS,
+  wind_dungeon: WIND_DUNGEON_FLOORS,
+  light_dungeon: LIGHT_DUNGEON_FLOORS,
+  dark_dungeon: DARK_DUNGEON_FLOORS,
+  toa: TOA_FLOORS,
+  toa_hard: TOA_HARD_FLOORS,
 };
+
+// ToA reward tiers (every 10 floors gives special rewards)
+export function getToaRewards(floor: number, hard: boolean): { crystals: number; mysticalScrolls: number; mana: number; energy: number } {
+  const base = hard ? 2 : 1;
+  if (floor % 10 !== 0) return { crystals: 0, mysticalScrolls: 0, mana: 1000 * base, energy: 0 };
+  const tier = floor / 10;
+  return {
+    crystals: tier * 10 * base,
+    mysticalScrolls: tier >= 5 ? Math.floor(tier / 3) * base : 0,
+    mana: tier * 5000 * base,
+    energy: tier >= 3 ? 20 : 0,
+  };
+}
 
 // Helper function to get dungeon floor by type and level
 export function getDungeonFloor(dungeonType: DungeonType, level: number): DungeonFloor | undefined {

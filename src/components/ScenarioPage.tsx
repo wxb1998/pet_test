@@ -127,8 +127,22 @@ export function ScenarioPage({ onStartBattle }: { onStartBattle: (setup: BattleS
           </div>
           <div className="scenario-grid">
             {SCENARIO_REGIONS.map((r, idx) => {
-              const cleared = (state.scenarioProgress?.[r.id] || 0);
-              const unlocked = idx === 0 || (state.scenarioProgress?.[SCENARIO_REGIONS[idx - 1].id] || 0) >= 7;
+              // Check max progress across all difficulties for this region
+              const getRegionMaxProgress = (regionId: string) => {
+                let max = 0;
+                for (const d of ['normal', 'hard', 'hell'] as Difficulty[]) {
+                  const key = `${regionId}_${d}`;
+                  const val = state.scenarioProgress?.[key] || 0;
+                  if (val > max) max = val;
+                }
+                // Also check legacy key (region id without difficulty)
+                const legacy = state.scenarioProgress?.[regionId] || 0;
+                if (legacy > max) max = legacy;
+                return max;
+              };
+              const cleared = getRegionMaxProgress(r.id);
+              const prevCleared = idx > 0 ? getRegionMaxProgress(SCENARIO_REGIONS[idx - 1].id) : 7;
+              const unlocked = idx === 0 || prevCleared >= 7;
               return (
                 <div
                   key={r.id}

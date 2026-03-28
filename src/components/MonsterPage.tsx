@@ -310,8 +310,8 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
                   <div
                     key={slot}
                     className={`rune-slot ${rune ? 'filled' : ''}`}
-                    style={{ cursor: !rune ? 'pointer' : 'default' }}
-                    onClick={() => !rune && setSelectingRuneSlot(slot)}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectingRuneSlot(slot)}
                   >
                     <div className="slot-num">槽位 {slot}</div>
                     {rune ? (
@@ -328,39 +328,72 @@ function MonsterDetail({ mon }: { mon: MonsterInstance }) {
             </div>
           </div>
 
-          {/* Rune selector for empty slot */}
-          {selectingRuneSlot && (
-            <div className="modal-overlay" onClick={() => setSelectingRuneSlot(null)}>
-              <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <div className="modal-title">选择符文装备到槽位 {selectingRuneSlot}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '300px', overflowY: 'auto' }}>
-                  {state.runes.filter(r => !r.equippedTo && r.slot === selectingRuneSlot).map(rune => (
-                    <button
-                      key={rune.id}
-                      className="pixel-btn secondary"
-                      style={{ textAlign: 'left', padding: '6px', fontSize: '7px' }}
-                      onClick={() => {
-                        dispatch({ type: 'EQUIP_RUNE', monsterId: mon.id, rune });
-                        setSelectingRuneSlot(null);
-                      }}
-                    >
-                      {rune.set} +{rune.level} {'★'.repeat(rune.stars)}
-                    </button>
-                  ))}
-                </div>
-                {state.runes.filter(r => !r.equippedTo && r.slot === selectingRuneSlot).length === 0 && (
-                  <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '7px' }}>
-                    没有可用的符文
+          {/* Rune selector / unequip modal */}
+          {selectingRuneSlot && (() => {
+            const currentRune = mon.runes[selectingRuneSlot as 1|2|3|4|5|6];
+            const availableRunes = state.runes.filter(r => !r.equippedTo && r.slot === selectingRuneSlot);
+            return (
+              <div className="modal-overlay" onClick={() => setSelectingRuneSlot(null)}>
+                <div className="modal-content" onClick={e => e.stopPropagation()}>
+                  <div className="modal-title">槽位 {selectingRuneSlot}</div>
+
+                  {/* Show current rune + unequip option */}
+                  {currentRune && (
+                    <div style={{ marginBottom: '8px', padding: '6px', background: 'var(--bg-dark)', border: '2px solid var(--border)' }}>
+                      <div style={{ fontSize: '8px', color: 'var(--text-dim)', marginBottom: '4px' }}>当前装备:</div>
+                      <div style={{ fontSize: '8px', color: 'var(--accent2)' }}>
+                        {currentRune.set} +{currentRune.level} {'★'.repeat(currentRune.stars)}
+                      </div>
+                      <button
+                        className="pixel-btn danger small"
+                        style={{ marginTop: '6px' }}
+                        onClick={() => {
+                          if (state.player.mana < 25000) {
+                            alert('玛那不足！卸下符文需要25,000玛那');
+                            return;
+                          }
+                          dispatch({ type: 'UNEQUIP_RUNE', monsterId: mon.id, slot: selectingRuneSlot as 1|2|3|4|5|6 });
+                          setSelectingRuneSlot(null);
+                        }}
+                      >
+                        卸下 (💰25,000)
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Available runes to equip */}
+                  <div style={{ fontSize: '8px', color: 'var(--text-dim)', marginBottom: '4px' }}>
+                    {currentRune ? '替换为:' : '选择符文:'}
                   </div>
-                )}
-                <div style={{ marginTop: '8px' }}>
-                  <button className="pixel-btn secondary small" onClick={() => setSelectingRuneSlot(null)}>
-                    取消
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '250px', overflowY: 'auto' }}>
+                    {availableRunes.map(rune => (
+                      <button
+                        key={rune.id}
+                        className="pixel-btn secondary"
+                        style={{ textAlign: 'left', padding: '6px', fontSize: '7px' }}
+                        onClick={() => {
+                          dispatch({ type: 'EQUIP_RUNE', monsterId: mon.id, rune });
+                          setSelectingRuneSlot(null);
+                        }}
+                      >
+                        {rune.set} +{rune.level} {'★'.repeat(rune.stars)}
+                      </button>
+                    ))}
+                  </div>
+                  {availableRunes.length === 0 && !currentRune && (
+                    <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '7px' }}>
+                      没有可用的符文
+                    </div>
+                  )}
+                  <div style={{ marginTop: '8px' }}>
+                    <button className="pixel-btn secondary small" onClick={() => setSelectingRuneSlot(null)}>
+                      取消
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
     </div>

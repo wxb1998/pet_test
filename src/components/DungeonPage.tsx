@@ -9,11 +9,26 @@ const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
 };
 
-const DUNGEONS: { type: DungeonType; icon: string; name: string; element: string }[] = [
-  { type: 'giants', icon: '🗿', name: '巨人地下城', element: '风' },
-  { type: 'dragons', icon: '🐲', name: '龙之地下城', element: '火' },
-  { type: 'necropolis', icon: '💀', name: '死亡地下城', element: '暗' },
+const CAIROS_DUNGEONS: { type: DungeonType; icon: string; name: string; element: string; maxFloor: number }[] = [
+  { type: 'giants', icon: '🗿', name: '巨人地下城', element: '风', maxFloor: 12 },
+  { type: 'dragons', icon: '🐲', name: '龙之地下城', element: '火', maxFloor: 12 },
+  { type: 'necropolis', icon: '💀', name: '死亡地下城', element: '暗', maxFloor: 12 },
 ];
+
+const ELEMENTAL_DUNGEONS: { type: DungeonType; icon: string; name: string; element: string; maxFloor: number }[] = [
+  { type: 'fire_dungeon', icon: '🔥', name: '火之地下城', element: '火', maxFloor: 10 },
+  { type: 'water_dungeon', icon: '💧', name: '水之地下城', element: '水', maxFloor: 10 },
+  { type: 'wind_dungeon', icon: '🌪', name: '风之地下城', element: '风', maxFloor: 10 },
+  { type: 'light_dungeon', icon: '✨', name: '光之地下城', element: '光', maxFloor: 10 },
+  { type: 'dark_dungeon', icon: '🌑', name: '暗之地下城', element: '暗', maxFloor: 10 },
+];
+
+const TOA_DUNGEONS: { type: DungeonType; icon: string; name: string; element: string; maxFloor: number }[] = [
+  { type: 'toa', icon: '🗼', name: '试炼之塔', element: '全', maxFloor: 100 },
+  { type: 'toa_hard', icon: '🗼', name: '试炼之塔(困难)', element: '全', maxFloor: 100 },
+];
+
+const ALL_DUNGEONS = [...CAIROS_DUNGEONS, ...ELEMENTAL_DUNGEONS, ...TOA_DUNGEONS];
 
 interface Props {
   onStartBattle: (setup: BattleSetup) => void;
@@ -23,6 +38,7 @@ export function DungeonPage({ onStartBattle }: Props) {
   const state = useGameState();
   const dispatch = useDispatch();
   const store = useGameStore();
+  const [dungeonTab, setDungeonTab] = useState<'cairos' | 'elemental' | 'toa'>('cairos');
   const [selectedDungeon, setSelectedDungeon] = useState<DungeonType | null>(null);
   const [selectedFloor, setSelectedFloor] = useState(1);
   const [team, setTeam] = useState<string[]>(state.savedTeam?.dungeon || []);
@@ -56,9 +72,11 @@ export function DungeonPage({ onStartBattle }: Props) {
     });
   };
 
+  const isToa = selectedDungeon === 'toa' || selectedDungeon === 'toa_hard';
+
   const handleQuickRun = () => {
     if (!selectedDungeon || team.length === 0) return;
-    if (state.player.energy < 7) {
+    if (state.player.energy < (isToa ? 0 : 7)) {
       alert('体力不足！');
       return;
     }
@@ -72,6 +90,10 @@ export function DungeonPage({ onStartBattle }: Props) {
       mana: result.rewards.mana,
       rune: result.rewards.rune,
     });
+    // ToA completion tracking
+    if (isToa && result.victory) {
+      dispatch({ type: 'TOA_CLEAR', floor: selectedFloor, hard: selectedDungeon === 'toa_hard' });
+    }
     setBattleResult(result);
   };
 
@@ -111,24 +133,45 @@ export function DungeonPage({ onStartBattle }: Props) {
       {!selectedDungeon && (
         <div className="panel">
           <div className="panel-title">🏰 选择副本</div>
+
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
+            <button className={`tab-btn ${dungeonTab === 'cairos' ? 'active' : ''}`} onClick={() => setDungeonTab('cairos')}>
+              凯罗斯副本
+            </button>
+            <button className={`tab-btn ${dungeonTab === 'elemental' ? 'active' : ''}`} onClick={() => setDungeonTab('elemental')}>
+              属性地下城
+            </button>
+            <button className={`tab-btn ${dungeonTab === 'toa' ? 'active' : ''}`} onClick={() => setDungeonTab('toa')}>
+              试炼之塔
+            </button>
+          </div>
+
           <div className="dungeon-grid">
-            {DUNGEONS.map(d => {
-              const progress = state.dungeonProgress[d.type] || 0;
+            {(dungeonTab === 'cairos' ? CAIROS_DUNGEONS : dungeonTab === 'elemental' ? ELEMENTAL_DUNGEONS : TOA_DUNGEONS).map(d => {
+              const progress = d.type === 'toa' ? (state.toaProgress || 0)
+                : d.type === 'toa_hard' ? (state.toaHardProgress || 0)
+                : (state.dungeonProgress[d.type] || 0);
               return (
                 <div
                   key={d.type}
                   className="dungeon-card"
-                  onClick={() => { setSelectedDungeon(d.type); setSelectedFloor(Math.max(1, progress)); }}
+                  onClick={() => { setSelectedDungeon(d.type); setSelectedFloor(Math.min(Math.max(1, progress + 1), d.maxFloor)); }}
                 >
                   <div className="dungeon-icon">{d.icon}</div>
                   <div className="dungeon-name">{d.name}</div>
                   <div className="dungeon-info">
-                    {d.element}属性 | 已通关: B{progress || 0}
+                    {d.element}属性 | 已通关: {d.type.startsWith('toa') ? `${progress}/100层` : `B${progress || 0}`}
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {dungeonTab === 'toa' && (
+            <div style={{ fontSize: '7px', color: 'var(--text-dim)', marginTop: '8px', lineHeight: '2' }}>
+              试炼之塔每月重置。通关每10层可获得丰厚奖励（水晶、卷轴、玛那等）。困难模式奖励翻倍！
+            </div>
+          )}
         </div>
       )}
 
@@ -136,29 +179,46 @@ export function DungeonPage({ onStartBattle }: Props) {
       {selectedDungeon && (
         <div className="panel">
           <div className="panel-title">
-            <span style={{ cursor: 'pointer' }} onClick={() => { setSelectedDungeon(null); setTeam([]); setBattleResult(null); }}>
+            <span style={{ cursor: 'pointer' }} onClick={() => { setSelectedDungeon(null); setBattleResult(null); }}>
               ← 返回
             </span>
-            {' '} | {DUNGEONS.find(d => d.type === selectedDungeon)?.name}
+            {' '} | {ALL_DUNGEONS.find(d => d.type === selectedDungeon)?.name}
           </div>
 
-          <div style={{ fontSize: '8px', color: 'var(--text-dim)', marginBottom: '8px' }}>选择层数:</div>
-          <div className="floor-selector">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(floor => {
-              const cleared = (state.dungeonProgress[selectedDungeon] || 0) >= floor;
-              const unlocked = floor <= (state.dungeonProgress[selectedDungeon] || 0) + 1;
-              return (
-                <button
-                  key={floor}
-                  className={`floor-btn ${selectedFloor === floor ? 'active' : ''} ${cleared ? 'cleared' : ''} ${!unlocked ? 'locked' : ''}`}
-                  onClick={() => unlocked && setSelectedFloor(floor)}
-                  disabled={!unlocked}
-                >
-                  B{floor}
-                </button>
-              );
-            })}
-          </div>
+          {(() => {
+            const dungeonInfo = ALL_DUNGEONS.find(d => d.type === selectedDungeon);
+            const maxFloor = dungeonInfo?.maxFloor || 12;
+            const isToa = selectedDungeon === 'toa' || selectedDungeon === 'toa_hard';
+            const progress = isToa
+              ? (selectedDungeon === 'toa' ? state.toaProgress || 0 : state.toaHardProgress || 0)
+              : (state.dungeonProgress[selectedDungeon] || 0);
+
+            return (
+              <>
+                <div style={{ fontSize: '8px', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                  选择层数: (已通关: {isToa ? `${progress}层` : `B${progress}`})
+                </div>
+                <div className="floor-selector" style={{ maxHeight: isToa ? '120px' : undefined, overflowY: isToa ? 'auto' : undefined }}>
+                  {Array.from({ length: maxFloor }, (_, i) => i + 1).map(floor => {
+                    const cleared = progress >= floor;
+                    const unlocked = floor <= progress + 1;
+                    return (
+                      <button
+                        key={floor}
+                        className={`floor-btn ${selectedFloor === floor ? 'active' : ''} ${cleared ? 'cleared' : ''} ${!unlocked ? 'locked' : ''}`}
+                        onClick={() => unlocked && setSelectedFloor(floor)}
+                        disabled={!unlocked}
+                        style={{ fontSize: isToa ? '6px' : undefined, minWidth: isToa ? '28px' : undefined }}
+                      >
+                        {isToa ? floor : `B${floor}`}
+                        {isToa && floor % 10 === 0 ? '★' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Team selection */}
           <div style={{ fontSize: '8px', color: 'var(--text-dim)', margin: '12px 0 8px' }}>选择队伍 ({team.length}/5):</div>

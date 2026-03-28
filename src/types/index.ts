@@ -147,7 +147,8 @@ export interface MonsterInstance {
 }
 
 // Dungeon types
-export type DungeonType = 'giants' | 'dragons' | 'necropolis' | 'steel_fortress' | 'punishers_crypt';
+export type DungeonType = 'giants' | 'dragons' | 'necropolis' | 'steel_fortress' | 'punishers_crypt'
+  | 'fire_dungeon' | 'water_dungeon' | 'wind_dungeon' | 'light_dungeon' | 'dark_dungeon' | 'toa' | 'toa_hard';
 
 export interface DungeonFloor {
   level: number;
@@ -243,6 +244,10 @@ export interface GameState {
     runesDropped: number;
     startTime?: number;
   };
+  missions?: MissionProgress[];
+  lastDailyReset?: number; // timestamp of last daily mission reset
+  toaProgress?: number; // highest cleared ToA floor
+  toaHardProgress?: number; // highest cleared ToA Hard floor
   settings: {
     language: 'zh' | 'en';
     battleSpeed: 1 | 2 | 3;
@@ -251,6 +256,30 @@ export interface GameState {
       minStars: number;
     };
   };
+}
+
+// Mission / Activity system
+export interface Mission {
+  id: string;
+  nameZh: string;
+  descriptionZh: string;
+  type: 'daily' | 'achievement';
+  requirement: {
+    action: 'battle_dungeon' | 'battle_scenario' | 'battle_arena' | 'summon' | 'upgrade_rune' | 'level_monster' | 'evolve_monster' | 'awaken_monster' | 'equip_rune';
+    count: number;
+  };
+  rewards: {
+    mana?: number;
+    crystals?: number;
+    energy?: number;
+    mysticalScrolls?: number;
+  };
+}
+
+export interface MissionProgress {
+  missionId: string;
+  current: number;
+  claimed: boolean;
 }
 
 // Rune set bonuses

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGameState } from '../store/useGameStore';
+import { useGameState, useDispatch } from '../store/useGameStore';
 import { getTemplate, starDisplay } from '../utils/helpers';
 import type { Element } from '../types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
@@ -44,8 +44,9 @@ interface Props {
 
 export function ArenaPage({ onStartBattle }: Props) {
   const state = useGameState();
+  const dispatch = useDispatch();
   const [opponents] = useState(() => generateOpponents());
-  const [team, setTeam] = useState<string[]>([]);
+  const [team, setTeam] = useState<string[]>(state.savedTeam?.arena || []);
   const [showTeamSelect, setShowTeamSelect] = useState(false);
 
   const toggleTeamMember = (id: string) => {
@@ -58,6 +59,7 @@ export function ArenaPage({ onStartBattle }: Props) {
 
   const handleAttack = () => {
     if (team.length === 0) return;
+    dispatch({ type: 'SAVE_TEAM', mode: 'arena', team });
     onStartBattle({ team, mode: 'arena' });
   };
 

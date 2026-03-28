@@ -20,7 +20,7 @@ const STAT_NAMES_ZH: Record<string, string> = {
 export function RunePage() {
   const state = useGameState();
   const dispatch = useDispatch();
-  const [selectedRune, setSelectedRune] = useState<Rune | null>(null);
+  const [selectedRuneId, setSelectedRuneId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [tab, setTab] = useState<'inventory' | 'equipped'>('inventory');
   const [equipTarget, setEquipTarget] = useState<string | null>(null);
@@ -38,6 +38,11 @@ export function RunePage() {
       }
     }
   }
+
+  const allRunes = [...inventoryRunes, ...equippedRunes];
+  // Derive selectedRune from current state so it auto-updates after upgrades
+  const selectedRune = selectedRuneId ? allRunes.find(r => r.id === selectedRuneId) || null : null;
+  const setSelectedRune = (r: Rune | null) => setSelectedRuneId(r?.id || null);
 
   const displayRunes = tab === 'inventory' ? inventoryRunes : equippedRunes;
   const filteredRunes = filter === 'all' ? displayRunes : displayRunes.filter(r => r.set === filter);

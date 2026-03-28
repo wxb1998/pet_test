@@ -7,9 +7,10 @@ import { RunePage } from './components/RunePage';
 import { ArenaPage } from './components/ArenaPage';
 import { ScenarioPage } from './components/ScenarioPage';
 import { BattlePage } from './components/BattlePage';
+import { MissionPage } from './components/MissionPage';
 import { formatNumber } from './utils/helpers';
 
-type Page = 'monsters' | 'summon' | 'scenario' | 'dungeon' | 'runes' | 'arena' | 'battle';
+type Page = 'monsters' | 'summon' | 'scenario' | 'dungeon' | 'runes' | 'arena' | 'mission' | 'battle';
 
 export interface BattleSetup {
   team: string[];
@@ -68,6 +69,7 @@ function App() {
           ['dungeon', '🏰 副本'],
           ['runes', '💠 符文'],
           ['arena', '⚔ 竞技场'],
+          ['mission', '📋 任务'],
         ] as [Page, string][]).map(([key, label]) => (
           <button
             key={key}
@@ -96,6 +98,7 @@ function App() {
       {page === 'dungeon' && <DungeonPage onStartBattle={startBattle} />}
       {page === 'runes' && <RunePage />}
       {page === 'arena' && <ArenaPage onStartBattle={startBattle} />}
+      {page === 'mission' && <MissionPage />}
       {page === 'battle' && battleSetup && (
         <BattlePage setup={battleSetup} onEnd={endBattle} />
       )}
@@ -136,6 +139,9 @@ function getDungeonNameZh(type: string): string {
   const names: Record<string, string> = {
     giants: '巨人地下城', dragons: '龙之地下城', necropolis: '死亡地下城',
     steel_fortress: '钢铁要塞', punishers_crypt: '惩罚者墓穴',
+    fire_dungeon: '火之地下城', water_dungeon: '水之地下城', wind_dungeon: '风之地下城',
+    light_dungeon: '光之地下城', dark_dungeon: '暗之地下城',
+    toa: '试炼之塔', toa_hard: '试炼之塔(困难)',
   };
   return names[type] || type;
 }

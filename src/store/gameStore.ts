@@ -2,9 +2,10 @@ import type { GameState, MonsterInstance, Rune, RuneSlot, RuneMainStat, DungeonT
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { createMonsterInstance, computeStats, generateId, chance, randomInt } from '../utils/helpers';
 import { BattleEngine, createBattleUnit, createEnemyUnit } from '../engine/BattleEngine';
-import { getDungeonFloor } from '../data/dungeons';
+import { getDungeonFloor, getToaRewards } from '../data/dungeons';
 import type { Difficulty } from '../data/scenarios';
 import { getScenarioStage, calculateExpDistribution } from '../data/scenarios';
+import { DAILY_MISSIONS, ACHIEVEMENT_MISSIONS, ALL_MISSIONS } from '../data/missions';
 
 const SAVE_KEY = 'sw_idle_save';
 
@@ -36,6 +37,24 @@ function makeStarterRune(
 }
 
 // Initial game state
+// Pick N random unique elements
+function pickRandomElements(n: number): Element[] {
+  const all: Element[] = ['fire', 'water', 'wind', 'light', 'dark'];
+  const shuffled = [...all].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+}
+
+// Chakram dancer IDs by element
+const CHAKRAM_IDS: Record<Element, string> = {
+  fire: 'deva_fire', water: 'belita_water', wind: 'melissa_wind',
+  light: 'deva_light', dark: 'deva_light', // placeholder for dark
+};
+// Boomerang warrior IDs by element
+const BOOMERANG_IDS: Record<Element, string> = {
+  fire: 'maruna_fire', water: 'sabrina_water', wind: 'zenobia_wind',
+  light: 'bailey_light', dark: 'martina_dark',
+};
+
 function createInitialState(): GameState {
   // Give player some starter monsters
   const starters = [
@@ -46,6 +65,18 @@ function createInitialState(): GameState {
     createMonsterInstance('belladeon_light', 25, 4),  // Belladeon
     createMonsterInstance('konamiya_water', 20, 3),   // Konamiya
   ];
+
+  // Add 2 random Chakram Dancers + 2 random Boomerang Warriors (twins combo)
+  const chakramElements = pickRandomElements(2);
+  const boomElements = pickRandomElements(2);
+  for (const el of chakramElements) {
+    const id = CHAKRAM_IDS[el];
+    if (id) starters.push(createMonsterInstance(id, 20, 4));
+  }
+  for (const el of boomElements) {
+    const id = BOOMERANG_IDS[el];
+    if (id) starters.push(createMonsterInstance(id, 20, 4));
+  }
 
   // Give Fran a basic starter energy rune set
   const franId = starters[0].id;
@@ -132,6 +163,10 @@ export type GameAction =
   | { type: 'LOAD_SAVE'; state: GameState }
   | { type: 'SCENARIO_BATTLE'; regionId: string; stage: number; difficulty: Difficulty; team: string[] }
   | { type: 'SAVE_TEAM'; mode: 'scenario' | 'dungeon' | 'arena'; team: string[] }
+  | { type: 'MISSION_PROGRESS'; action: string; count?: number }
+  | { type: 'CLAIM_MISSION'; missionId: string }
+  | { type: 'RESET_DAILY_MISSIONS' }
+  | { type: 'TOA_CLEAR'; floor: number; hard: boolean }
   | { type: 'RESET_GAME' };
 
 // Game Store class
@@ -269,7 +304,13 @@ export class GameStore {
       case 'EQUIP_RUNE': {
         const mon = s.monsters.find(m => m.id === action.monsterId);
         if (mon) {
-          // Unequip from previous monster if needed
+          // If the target slot already has a rune, move it back to inventory
+          const existingRune = mon.runes[action.rune.slot];
+          if (existingRune) {
+            existingRune.equippedTo = undefined;
+            s.runes.push(existingRune);
+          }
+          // Unequip from previous monster if it was equipped elsewhere
           if (action.rune.equippedTo) {
             const prevMon = s.monsters.find(m => m.id === action.rune.equippedTo);
             if (prevMon) {
@@ -277,6 +318,9 @@ export class GameStore {
               prevMon.computedStats = computeStats(prevMon);
             }
           }
+          // Remove from inventory if it was there
+          s.runes = s.runes.filter(r => r.id !== action.rune.id);
+          // Equip to monster
           action.rune.equippedTo = mon.id;
           mon.runes[action.rune.slot] = action.rune;
           mon.computedStats = computeStats(mon);
@@ -287,11 +331,15 @@ export class GameStore {
       case 'UNEQUIP_RUNE': {
         const mon = s.monsters.find(m => m.id === action.monsterId);
         if (mon && mon.runes[action.slot]) {
+          const unequipCost = 25000;
+          if (s.player.mana < unequipCost) break; // Can't afford unequip
           const rune = mon.runes[action.slot]!;
           rune.equippedTo = undefined;
+          // Return rune to inventory
+          s.runes.push(rune);
           delete mon.runes[action.slot];
           mon.computedStats = computeStats(mon);
-          s.player.mana -= 25000; // unequip cost
+          s.player.mana -= unequipCost;
         }
         break;
       }
@@ -344,6 +392,7 @@ export class GameStore {
           s.idleProgress.runsCompleted++;
           s.idleProgress.totalManaEarned += action.mana;
           if (action.rune) s.idleProgress.runesDropped++;
+          this.trackMission(s, 'battle_dungeon');
         }
         break;
       }
@@ -499,12 +548,78 @@ export class GameStore {
           s.player.level++;
           s.player.maxEnergy = 90 + s.player.level;
         }
+        if (scenarioVictory) this.trackMission(s, 'battle_scenario');
         break;
       }
 
       case 'SAVE_TEAM': {
         if (!s.savedTeam) s.savedTeam = {};
         s.savedTeam[action.mode] = action.team;
+        break;
+      }
+
+      case 'MISSION_PROGRESS': {
+        if (!s.missions) s.missions = [];
+        // Check daily reset
+        const now = Date.now();
+        const today = new Date(now).setHours(0, 0, 0, 0);
+        if (!s.lastDailyReset || s.lastDailyReset < today) {
+          // Reset daily missions
+          s.missions = s.missions.filter(m => !m.missionId.startsWith('daily_'));
+          s.lastDailyReset = today;
+        }
+        // Find or create progress for matching missions
+        const allMissions = [...DAILY_MISSIONS, ...ACHIEVEMENT_MISSIONS];
+        for (const mission of allMissions) {
+          if (mission.requirement.action === action.action) {
+            let prog = s.missions.find(m => m.missionId === mission.id);
+            if (!prog) {
+              prog = { missionId: mission.id, current: 0, claimed: false };
+              s.missions.push(prog);
+            }
+            if (!prog.claimed) {
+              prog.current += (action.count || 1);
+            }
+          }
+        }
+        break;
+      }
+
+      case 'CLAIM_MISSION': {
+        if (!s.missions) break;
+        const prog = s.missions.find(m => m.missionId === action.missionId);
+        if (!prog || prog.claimed) break;
+        // Find the mission definition
+        const missionDef = ALL_MISSIONS.find((m: any) => m.id === action.missionId);
+        if (!missionDef || prog.current < missionDef.requirement.count) break;
+        prog.claimed = true;
+        // Grant rewards
+        if (missionDef.rewards.mana) s.player.mana += missionDef.rewards.mana;
+        if (missionDef.rewards.crystals) s.player.crystals += missionDef.rewards.crystals;
+        if (missionDef.rewards.energy) s.player.energy += missionDef.rewards.energy;
+        if (missionDef.rewards.mysticalScrolls) s.inventory.mysticalScrolls += missionDef.rewards.mysticalScrolls;
+        break;
+      }
+
+      case 'RESET_DAILY_MISSIONS': {
+        if (!s.missions) s.missions = [];
+        s.missions = s.missions.filter(m => !m.missionId.startsWith('daily_'));
+        s.lastDailyReset = new Date().setHours(0, 0, 0, 0);
+        break;
+      }
+
+      case 'TOA_CLEAR': {
+        if (action.hard) {
+          s.toaHardProgress = Math.max(s.toaHardProgress || 0, action.floor);
+        } else {
+          s.toaProgress = Math.max(s.toaProgress || 0, action.floor);
+        }
+        // ToA rewards for milestone floors
+        const rewards = getToaRewards(action.floor, action.hard);
+        s.player.mana += rewards.mana;
+        s.player.crystals += rewards.crystals;
+        s.player.energy += rewards.energy;
+        s.inventory.mysticalScrolls += rewards.mysticalScrolls;
         break;
       }
 
@@ -517,7 +632,43 @@ export class GameStore {
         return;
     }
 
+    // Auto-track mission progress based on action type
+    const missionActionMap: Record<string, string> = {
+      'SUMMON': 'summon',
+      'UPGRADE_RUNE': 'upgrade_rune',
+      'LEVEL_UP_MONSTER': 'level_monster',
+      'STAR_UP_MONSTER': 'evolve_monster',
+      'AWAKEN_MONSTER': 'awaken_monster',
+      'EQUIP_RUNE': 'equip_rune',
+      'ARENA_ATTACK': 'battle_arena',
+    };
+    const mAction = missionActionMap[action.type];
+    if (mAction) {
+      this.trackMission(s, mAction);
+    }
+
     this.setState(s);
+  }
+
+  private trackMission(s: GameState, actionType: string, count: number = 1) {
+    if (!s.missions) s.missions = [];
+    const now = Date.now();
+    const today = new Date(now).setHours(0, 0, 0, 0);
+    if (!s.lastDailyReset || s.lastDailyReset < today) {
+      s.missions = s.missions.filter(m => !m.missionId.startsWith('daily_'));
+      s.lastDailyReset = today;
+    }
+    const allM = [...DAILY_MISSIONS, ...ACHIEVEMENT_MISSIONS];
+    for (const mission of allM) {
+      if (mission.requirement.action === actionType) {
+        let prog = s.missions.find((m: any) => m.missionId === mission.id);
+        if (!prog) {
+          prog = { missionId: mission.id, current: 0, claimed: false };
+          s.missions.push(prog);
+        }
+        if (!prog.claimed) prog.current += count;
+      }
+    }
   }
 
   // Summoning system
