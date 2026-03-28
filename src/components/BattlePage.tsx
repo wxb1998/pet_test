@@ -208,74 +208,27 @@ export function BattlePage({ setup, onEnd }: Props) {
   const layoutSprites = useCallback((state: BattleState): BattleSprite[] => {
     const sprites: BattleSprite[] = [];
 
-    // Enemies top - horizontal spread, 2 rows if >3
+    // Enemies top - always single row
     const ec = state.enemies.length;
-    if (ec <= 3) {
-      const sp = Math.min(110, (CANVAS_W - 40) / Math.max(ec, 1));
-      const sx = (CANVAS_W - (ec - 1) * sp - SPRITE_SIZE) / 2;
-      state.enemies.forEach((unit, i) => {
-        sprites.push({
-          unit, x: sx + i * sp, y: ENEMY_ZONE_Y, baseX: sx + i * sp, baseY: ENEMY_ZONE_Y,
-          size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
-        });
+    const eSp = Math.min(110, (CANVAS_W - 20) / Math.max(ec, 1));
+    const eSx = (CANVAS_W - (ec - 1) * eSp - SPRITE_SIZE) / 2;
+    state.enemies.forEach((unit, i) => {
+      sprites.push({
+        unit, x: eSx + i * eSp, y: ENEMY_ZONE_Y, baseX: eSx + i * eSp, baseY: ENEMY_ZONE_Y,
+        size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
       });
-    } else {
-      // 2 rows
-      const topRow = Math.ceil(ec / 2);
-      const botRow = ec - topRow;
-      const sp1 = Math.min(110, (CANVAS_W - 40) / Math.max(topRow, 1));
-      const sx1 = (CANVAS_W - (topRow - 1) * sp1 - SPRITE_SIZE) / 2;
-      for (let i = 0; i < topRow; i++) {
-        const unit = state.enemies[i];
-        sprites.push({
-          unit, x: sx1 + i * sp1, y: ENEMY_ZONE_Y, baseX: sx1 + i * sp1, baseY: ENEMY_ZONE_Y,
-          size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
-        });
-      }
-      const sp2 = Math.min(110, (CANVAS_W - 40) / Math.max(botRow, 1));
-      const sx2 = (CANVAS_W - (botRow - 1) * sp2 - SPRITE_SIZE) / 2;
-      for (let i = 0; i < botRow; i++) {
-        const unit = state.enemies[topRow + i];
-        sprites.push({
-          unit, x: sx2 + i * sp2, y: ENEMY_ZONE_Y + SPRITE_SIZE + 16, baseX: sx2 + i * sp2, baseY: ENEMY_ZONE_Y + SPRITE_SIZE + 16,
-          size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
-        });
-      }
-    }
+    });
 
-    // Allies bottom
+    // Allies bottom - always single row
     const ac = state.allies.length;
-    if (ac <= 3) {
-      const sp = Math.min(110, (CANVAS_W - 40) / Math.max(ac, 1));
-      const sx = (CANVAS_W - (ac - 1) * sp - SPRITE_SIZE) / 2;
-      state.allies.forEach((unit, i) => {
-        sprites.push({
-          unit, x: sx + i * sp, y: ALLY_ZONE_Y, baseX: sx + i * sp, baseY: ALLY_ZONE_Y,
-          size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
-        });
+    const aSp = Math.min(110, (CANVAS_W - 20) / Math.max(ac, 1));
+    const aSx = (CANVAS_W - (ac - 1) * aSp - SPRITE_SIZE) / 2;
+    state.allies.forEach((unit, i) => {
+      sprites.push({
+        unit, x: aSx + i * aSp, y: ALLY_ZONE_Y, baseX: aSx + i * aSp, baseY: ALLY_ZONE_Y,
+        size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
       });
-    } else {
-      const topRow = Math.ceil(ac / 2);
-      const botRow = ac - topRow;
-      const sp1 = Math.min(110, (CANVAS_W - 40) / Math.max(topRow, 1));
-      const sx1 = (CANVAS_W - (topRow - 1) * sp1 - SPRITE_SIZE) / 2;
-      for (let i = 0; i < topRow; i++) {
-        const unit = state.allies[i];
-        sprites.push({
-          unit, x: sx1 + i * sp1, y: ALLY_ZONE_Y, baseX: sx1 + i * sp1, baseY: ALLY_ZONE_Y,
-          size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
-        });
-      }
-      const sp2 = Math.min(110, (CANVAS_W - 40) / Math.max(botRow, 1));
-      const sx2 = (CANVAS_W - (botRow - 1) * sp2 - SPRITE_SIZE) / 2;
-      for (let i = 0; i < botRow; i++) {
-        const unit = state.allies[topRow + i];
-        sprites.push({
-          unit, x: sx2 + i * sp2, y: ALLY_ZONE_Y + SPRITE_SIZE + 16, baseX: sx2 + i * sp2, baseY: ALLY_ZONE_Y + SPRITE_SIZE + 16,
-          size: SPRITE_SIZE, flipX: false, anim: { type: 'idle' }, hp: unit.currentHp, maxHp: unit.maxHp,
-        });
-      }
-    }
+    });
 
     return sprites;
   }, []);
