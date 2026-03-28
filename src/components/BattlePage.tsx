@@ -3,6 +3,8 @@ import { useGameState, useDispatch, useGameStore } from '../store/useGameStore';
 import { BattleEngine, createBattleUnit, createEnemyUnit } from '../engine/BattleEngine';
 import type { BattleState, BattleUnit, DungeonType, Element } from '../types';
 import { getDungeonFloor } from '../data/dungeons';
+import { getScenarioStage } from '../data/scenarios';
+import type { Difficulty } from '../data/scenarios';
 import type { BattleSetup } from '../App';
 import { ELEMENT_PALETTES, MONSTER_SPRITES } from './PixelSprite';
 
@@ -254,19 +256,81 @@ function drawAtbBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
 }
 
 // ========== BUFF/DEBUFF ICONS ==========
+const BUFF_ICONS: Record<string, { symbol: string; color: string }> = {
+  atkUp:       { symbol: '⚔↑', color: '#FF6644' },
+  defUp:       { symbol: '🛡↑', color: '#44AAFF' },
+  spdUp:       { symbol: '⚡↑', color: '#FFDD44' },
+  critUp:      { symbol: '💥↑', color: '#FF4488' },
+  immunity:    { symbol: '✦',   color: '#FFD700' },
+  invincible:  { symbol: '🔰',  color: '#FFD700' },
+  shield:      { symbol: '◇',   color: '#88DDFF' },
+  regen:       { symbol: '♥',   color: '#44FF88' },
+  reflect:     { symbol: '↺',   color: '#CC88FF' },
+  counter:     { symbol: '⚔↺',  color: '#FF8844' },
+  endure:      { symbol: '♦',   color: '#FFAA44' },
+};
+const DEBUFF_ICONS: Record<string, { symbol: string; color: string }> = {
+  atkDown:     { symbol: '⚔↓', color: '#FF4444' },
+  defDown:     { symbol: '🛡↓', color: '#FF4444' },
+  spdDown:     { symbol: '⚡↓', color: '#FF8844' },
+  glancing:    { symbol: '✗',   color: '#CC6644' },
+  stun:        { symbol: '★',   color: '#FFFF00' },
+  freeze:      { symbol: '❄',   color: '#88DDFF' },
+  sleep:       { symbol: '💤',  color: '#AAAACC' },
+  silence:     { symbol: '🔇',  color: '#CC44CC' },
+  dot:         { symbol: '🔥',  color: '#FF4400' },
+  healBlock:   { symbol: '♥✗',  color: '#CC0044' },
+  brandMark:   { symbol: '◎',   color: '#FF6600' },
+  oblivion:    { symbol: '∅',   color: '#888888' },
+  provoke:     { symbol: '!',   color: '#FF2222' },
+  bomb:        { symbol: '💣',  color: '#FF4444' },
+  strip:       { symbol: '↯',   color: '#CC66FF' },
+};
+
 function drawEffects(ctx: CanvasRenderingContext2D, unit: BattleUnit, x: number, y: number) {
   const allEffects = [
     ...unit.buffs.map(b => ({ ...b, isBuff: true })),
     ...unit.debuffs.map(d => ({ ...d, isBuff: false })),
   ];
-  const maxShow = 6;
+  if (allEffects.length === 0) return;
+
+  const maxShow = 8;
   const shown = allEffects.slice(0, maxShow);
-  const dotSize = 4;
-  const startX = x - (shown.length * (dotSize + 1)) / 2;
+  const iconW = 10;
+  const iconH = 9;
+  const gap = 1;
+  const totalW = shown.length * (iconW + gap) - gap;
+  const startX = x - totalW / 2;
 
   shown.forEach((effect, i) => {
-    ctx.fillStyle = effect.isBuff ? '#44AAFF' : '#FF6644';
-    ctx.fillRect(startX + i * (dotSize + 1), y, dotSize, dotSize);
+    const ix = startX + i * (iconW + gap);
+    const iy = y;
+
+    // Background box
+    const bgColor = effect.isBuff ? 'rgba(0,80,200,0.7)' : 'rgba(200,40,0,0.7)';
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(ix, iy, iconW, iconH);
+
+    // Border
+    ctx.strokeStyle = effect.isBuff ? '#44AAFF' : '#FF6644';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(ix, iy, iconW, iconH);
+
+    // Icon/text
+    const icons = effect.isBuff ? BUFF_ICONS : DEBUFF_ICONS;
+    const iconInfo = icons[effect.type] || { symbol: effect.isBuff ? '↑' : '↓', color: effect.isBuff ? '#88CCFF' : '#FF8866' };
+    ctx.fillStyle = iconInfo.color;
+    ctx.font = 'bold 6px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(iconInfo.symbol.charAt(0), ix + iconW / 2, iy + iconH - 2);
+
+    // Duration indicator (turns left)
+    if (effect.turns > 0) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '5px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${effect.turns}`, ix + iconW - 1, iy + 5);
+    }
   });
 }
 
@@ -343,6 +407,11 @@ export function BattlePage({ setup, onEnd }: Props) {
           ...floorData.enemies.map(e => createEnemyUnit(e.templateId, e.level, e.stars)),
           createEnemyUnit(floorData.boss.templateId, floorData.boss.level, floorData.boss.stars),
         ];
+      }
+    } else if (setup.mode === 'scenario' && setup.scenarioRegion && setup.scenarioStage && setup.scenarioDifficulty) {
+      const stageData = getScenarioStage(setup.scenarioRegion, setup.scenarioStage, setup.scenarioDifficulty as Difficulty);
+      if (stageData) {
+        enemies = stageData.enemies.map(e => createEnemyUnit(e.templateId, e.level, e.stars));
       }
     } else if (setup.mode === 'arena') {
       enemies = [
@@ -766,6 +835,15 @@ export function BattlePage({ setup, onEnd }: Props) {
         victory: battleState.status === 'victory',
         mana: result.rewards.mana,
         rune: result.rewards.rune,
+      });
+    } else if (battleState && setup.mode === 'scenario' && setup.scenarioRegion && setup.scenarioStage && setup.scenarioDifficulty) {
+      // Dispatch SCENARIO_BATTLE to award XP, mana, rune drops, and update progress
+      dispatch({
+        type: 'SCENARIO_BATTLE',
+        regionId: setup.scenarioRegion,
+        stage: setup.scenarioStage,
+        difficulty: setup.scenarioDifficulty as Difficulty,
+        team: setup.team,
       });
     }
     onEnd();

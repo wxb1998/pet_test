@@ -16,7 +16,9 @@ const ELEMENT_ICONS: Record<Element, string> = {
   fire: '🔥', water: '💧', wind: '🌪', light: '✨', dark: '🌑',
 };
 
-export function ScenarioPage() {
+import type { BattleSetup } from '../App';
+
+export function ScenarioPage({ onStartBattle }: { onStartBattle: (setup: BattleSetup) => void }) {
   const state = useGameState();
   const dispatch = useDispatch();
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
@@ -62,49 +64,14 @@ export function ScenarioPage() {
       return;
     }
 
-    // Dispatch the scenario battle action
-    dispatch({
-      type: 'SCENARIO_BATTLE',
-      regionId: selectedRegion,
-      stage: selectedStage,
-      difficulty,
+    // Open animated battle page
+    onStartBattle({
       team,
+      mode: 'scenario',
+      scenarioRegion: selectedRegion,
+      scenarioStage: selectedStage,
+      scenarioDifficulty: difficulty,
     });
-
-    // Calculate results for display
-    const teamMembers = team.map(id => {
-      const mon = state.monsters.find(m => m.id === id);
-      const tmpl = mon ? getTemplate(mon.templateId) : null;
-      return {
-        id,
-        name: tmpl?.nameZh || '???',
-        level: mon?.level || 1,
-        maxLevel: (mon?.stars || 3) * 5 + 10,
-      };
-    });
-
-    // XP distribution: max level monsters don't take XP
-    const eligible = teamMembers.filter(m => m.level < m.maxLevel);
-    const expPerMon = eligible.length > 0
-      ? Math.floor(stageData.rewards.expBase / eligible.length)
-      : 0;
-
-    const expGains = teamMembers.map(m => ({
-      id: m.id,
-      name: m.name,
-      exp: m.level < m.maxLevel ? expPerMon : 0,
-    }));
-
-    const runeDropped = Math.random() < stageData.rewards.runeDropChance;
-
-    setLastResult({
-      victory: true,
-      expGains,
-      mana: stageData.rewards.manaBase,
-      runeDropped,
-    });
-
-    return { expPerMon, mana: stageData.rewards.manaBase };
   };
 
   const startAutoFarm = () => {

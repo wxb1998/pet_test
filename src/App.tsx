@@ -15,7 +15,10 @@ export interface BattleSetup {
   team: string[];
   dungeon?: string;
   floor?: number;
-  mode: 'dungeon' | 'arena';
+  mode: 'dungeon' | 'arena' | 'scenario';
+  scenarioRegion?: string;
+  scenarioStage?: number;
+  scenarioDifficulty?: string;
 }
 
 function App() {
@@ -30,8 +33,9 @@ function App() {
   };
 
   const endBattle = () => {
+    const prev = battleSetup?.mode === 'scenario' ? 'scenario' : 'dungeon';
     setBattleSetup(null);
-    setPage('dungeon');
+    setPage(prev as Page);
   };
 
   return (
@@ -88,7 +92,7 @@ function App() {
 
       {page === 'monsters' && <MonsterPage />}
       {page === 'summon' && <SummonPage />}
-      {page === 'scenario' && <ScenarioPage />}
+      {page === 'scenario' && <ScenarioPage onStartBattle={startBattle} />}
       {page === 'dungeon' && <DungeonPage onStartBattle={startBattle} />}
       {page === 'runes' && <RunePage />}
       {page === 'arena' && <ArenaPage onStartBattle={startBattle} />}
